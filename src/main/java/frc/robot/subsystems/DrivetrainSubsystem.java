@@ -5,7 +5,10 @@ import java.util.function.Supplier;
 //import com.ctre.phoenix.sensors.Pigeon2;
 import com.ctre.phoenix6.hardware.Pigeon2;
 //import com.ctre.phoenix.sensors.Pigeon2Configuration;
-import com.swervedrivespecialties.swervelib.Mk4iSwerveModuleHelper;
+import com.swervedrivespecialties.swervelib.MkModuleConfiguration;
+import com.swervedrivespecialties.swervelib.MkSwerveModuleBuilder;
+import com.swervedrivespecialties.swervelib.MotorType;
+import com.swervedrivespecialties.swervelib.SdsModuleConfigurations;
 import com.swervedrivespecialties.swervelib.SwerveModule;
 
 import edu.wpi.first.math.MathUtil;
@@ -26,6 +29,7 @@ import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
 import frc.robot.Constants.SDSConstants;
 
 public class DrivetrainSubsystem extends SubsystemBase {
@@ -36,7 +40,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
 
     private final SwerveModule frontLeftModule;
     private final SwerveModule frontRightModule;
-    private final SwerveModule backLeftModule;
+    private final SwerveModule  backLeftModule;
     private final SwerveModule backRightModule;
 
     private final PIDController RotatePID;
@@ -70,49 +74,54 @@ public class DrivetrainSubsystem extends SubsystemBase {
     public DrivetrainSubsystem() {
         ShuffleboardTab shuffleboardTab = Shuffleboard.getTab("Drivetrain");
 
-        frontLeftModule = Mk4iSwerveModuleHelper.createNeo(
-                shuffleboardTab.getLayout("Front Left Module", BuiltInLayouts.kList)
+         frontLeftModule = new MkSwerveModuleBuilder()
+        .withDriveMotor(MotorType.NEO, SDSConstants.FRONT_LEFT_MODULE_DRIVE_MOTOR)
+        .withSteerMotor(MotorType.NEO, SDSConstants.FRONT_LEFT_MODULE_STEER_MOTOR)
+        .withSteerEncoderPort(SDSConstants.FRONT_LEFT_MODULE_STEER_ENCODER)
+        .withSteerOffset(SDSConstants.FRONT_LEFT_MODULE_STEER_OFFSET)
+        .withGearRatio(SdsModuleConfigurations.MK4I_L2)
+        .withLayout(
+            shuffleboardTab.getLayout("Front Left Module", BuiltInLayouts.kList)
                         .withSize(2, 4)
-                        .withPosition(0, 0),
-                Mk4iSwerveModuleHelper.GearRatio.L2,
-                SDSConstants.FRONT_LEFT_MODULE_DRIVE_MOTOR,
-                SDSConstants.FRONT_LEFT_MODULE_STEER_MOTOR,
-                SDSConstants.FRONT_LEFT_MODULE_STEER_ENCODER,
-                SDSConstants.FRONT_LEFT_MODULE_STEER_OFFSET
-        );
+                        .withPosition(0, 0)
+        ).build();
 
-        frontRightModule = Mk4iSwerveModuleHelper.createNeo(
-                shuffleboardTab.getLayout("Front Right Module", BuiltInLayouts.kList)
+        frontRightModule = new MkSwerveModuleBuilder()
+        .withDriveMotor(MotorType.NEO, SDSConstants.FRONT_RIGHT_MODULE_DRIVE_MOTOR)
+        .withSteerMotor(MotorType.NEO, SDSConstants.FRONT_RIGHT_MODULE_STEER_MOTOR)
+        .withSteerEncoderPort(SDSConstants.FRONT_RIGHT_MODULE_STEER_ENCODER)
+        .withSteerOffset(SDSConstants.FRONT_RIGHT_MODULE_STEER_OFFSET)
+        .withGearRatio(SdsModuleConfigurations.MK4I_L2)
+        .withLayout(
+            shuffleboardTab.getLayout("Front Right Module", BuiltInLayouts.kList)
                         .withSize(2, 4)
-                        .withPosition(2, 0),
-                Mk4iSwerveModuleHelper.GearRatio.L2,
-                SDSConstants.FRONT_RIGHT_MODULE_DRIVE_MOTOR,
-                SDSConstants.FRONT_RIGHT_MODULE_STEER_MOTOR,
-                SDSConstants.FRONT_RIGHT_MODULE_STEER_ENCODER,
-                SDSConstants.FRONT_RIGHT_MODULE_STEER_OFFSET
-        );
+                        .withPosition(2, 0)
+        ).build();
 
-        backLeftModule = Mk4iSwerveModuleHelper.createNeo(
-                shuffleboardTab.getLayout("Back Left Module", BuiltInLayouts.kList)
-                        .withSize(2, 4)
-                        .withPosition(4, 0),
-                Mk4iSwerveModuleHelper.GearRatio.L2,
-                SDSConstants.BACK_LEFT_MODULE_DRIVE_MOTOR,
-                SDSConstants.BACK_LEFT_MODULE_STEER_MOTOR,
-                SDSConstants.BACK_LEFT_MODULE_STEER_ENCODER,
-                SDSConstants.BACK_LEFT_MODULE_STEER_OFFSET
-        );
+        backLeftModule = new MkSwerveModuleBuilder()
+        .withDriveMotor(MotorType.NEO, SDSConstants.BACK_LEFT_MODULE_DRIVE_MOTOR)
+        .withSteerMotor(MotorType.NEO, SDSConstants.BACK_LEFT_MODULE_STEER_MOTOR)
+        .withSteerEncoderPort(SDSConstants.BACK_LEFT_MODULE_STEER_ENCODER)
+        .withSteerOffset(SDSConstants.BACK_LEFT_MODULE_STEER_OFFSET)
+        .withGearRatio(SdsModuleConfigurations.MK4I_L2)
+        .withLayout(
+            shuffleboardTab.getLayout("Back Left Module", BuiltInLayouts.kList)
+            .withSize(2, 4)
+            .withPosition(4, 0)
+        ).build();
+        
 
-        backRightModule = Mk4iSwerveModuleHelper.createNeo(
-                shuffleboardTab.getLayout("Back Right Module", BuiltInLayouts.kList)
+        backRightModule = new MkSwerveModuleBuilder()
+        .withDriveMotor(MotorType.NEO, SDSConstants.BACK_RIGHT_MODULE_DRIVE_MOTOR)
+        .withSteerMotor(MotorType.NEO, SDSConstants.BACK_RIGHT_MODULE_STEER_MOTOR)
+        .withSteerEncoderPort(SDSConstants.BACK_RIGHT_MODULE_STEER_ENCODER)
+        .withSteerOffset(SDSConstants.BACK_RIGHT_MODULE_STEER_OFFSET)
+        .withGearRatio(SdsModuleConfigurations.MK4I_L2)
+        .withLayout(
+            shuffleboardTab.getLayout("Back Right Module", BuiltInLayouts.kList)
                         .withSize(2, 4)
-                        .withPosition(6, 0),
-                Mk4iSwerveModuleHelper.GearRatio.L2,
-                SDSConstants.BACK_RIGHT_MODULE_DRIVE_MOTOR,
-                SDSConstants.BACK_RIGHT_MODULE_STEER_MOTOR,
-                SDSConstants.BACK_RIGHT_MODULE_STEER_ENCODER,
-                SDSConstants.BACK_RIGHT_MODULE_STEER_OFFSET
-        );
+                        .withPosition(6, 0)
+        ).build();
 
         odometry = new SwerveDriveOdometry(
             kinematics,
@@ -179,8 +188,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     public double getGyroYaw() {
-        return 0.0;
-        // return gyroscope.getYaw().getValueAsDouble();
+        return gyroscope.getYaw().getValueAsDouble();
     }
 
     public Rotation2d getRotation() {
@@ -262,7 +270,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
     @Override
     public void periodic() {
 
-        //rotatePIDCalculation();
+        rotatePIDCalculation();
 
         dashboard();
 
@@ -295,10 +303,11 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     public void stopModules() {
-        frontLeftModule.stop();
-        frontRightModule.stop();
-        backLeftModule.stop();
-        backRightModule.stop();
+        frontLeftModule.set(0,0);
+        frontRightModule.set(0,0);
+        backLeftModule.set(0,0);
+        backRightModule.set(0,0);
+        backLeftModule.set(0,0);
     }
 
     private void dashboard() {

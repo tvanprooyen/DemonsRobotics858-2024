@@ -1,15 +1,35 @@
-// package frc.robot.commands;
+ package frc.robot.commands;
 
-// import frc.robot.subsystems.LiftLaunchSubsystem;
+ import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.subsystems.LiftLaunchSubsystem;
+ 
+ public class LaunchCMD extends Command {
+     private LiftLaunchSubsystem liftLaunchSubsystem;
+     private double launchSpeed;
+     private double feedSpeed;
+     private int placeholder;
+     
+     public LaunchCMD(LiftLaunchSubsystem liftLaunchSubsystem, double launchSpeed){
+         this.liftLaunchSubsystem = liftLaunchSubsystem;
+         this.launchSpeed = launchSpeed;
+     }
 
-// public class LaunchCMD {
-//     private LiftLaunchSubsystem liftLaunchSubsystem;
+     public LaunchCMD(LiftLaunchSubsystem liftLaunchSubsystem, double feedSpeed, int placeholder){
+        this.liftLaunchSubsystem = liftLaunchSubsystem;
+        this.feedSpeed = feedSpeed;
+        this.placeholder = placeholder;
+     }
 
-//     private double launchSpeed;
+     @Override 
+    public void execute(){
+        liftLaunchSubsystem.setLaunchSpeed(launchSpeed);
+        liftLaunchSubsystem.setFeedSpeed(feedSpeed);
+    }
 
-//     public LaunchCMD(LiftLaunchSubsystem liftLaunchSubsystem, double launchSpeed){
-//         this.liftLaunchSubsystem = liftLaunchSubsystem;
-//         this.launchSpeed = launchSpeed;
-
-//     }
-// }
+     
+    @Override
+    public void end(boolean interupted) {
+        liftLaunchSubsystem.setLaunchSpeed(0);
+        liftLaunchSubsystem.setFeedSpeed(0);
+     }
+ }

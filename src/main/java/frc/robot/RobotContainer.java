@@ -11,11 +11,13 @@ import edu.wpi.first.wpilibj2.command.InstantCommand;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-// import frc.robot.commands.LiftCMD;
+//import frc.robot.commands.LiftCMD;
 import frc.robot.commands.DriveCommand;
-// import frc.robot.commands.LaunchCMD;
+import frc.robot.commands.LaunchCMD;
+import frc.robot.commands.LiftCMD;
 import frc.robot.subsystems.DrivetrainSubsystem;
-// import frc.robot.subsystems.LiftLaunchSubsystem;
+import frc.robot.subsystems.IntakeSubsystem;
+import frc.robot.subsystems.LiftLaunchSubsystem;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -28,11 +30,13 @@ import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.SwerveControllerCommand;
 import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import frc.robot.Constants.OIConstants;
+import frc.robot.subsystems.IntakeSubsystem;
+import frc.robot.commands.IntakeCommand;
 
 
 public class RobotContainer {
 
-  // private final LiftLaunchSubsystem liftLaunchSubsystem = new LiftLaunchSubsystem();
+  private final LiftLaunchSubsystem liftLaunchSubsystem = new LiftLaunchSubsystem();
   private final DrivetrainSubsystem drivetrain = new DrivetrainSubsystem();
   
   private final SlewRateLimiter xLimiter = new SlewRateLimiter(5);
@@ -41,9 +45,11 @@ public class RobotContainer {
 
   private final XboxController  controller1 = new XboxController (0);
   private final XboxController controller2 = new XboxController(1);
+  private final IntakeSubsystem intakeSubsystem = new IntakeSubsystem();;
 
   public RobotContainer() {
- 
+
+
     drivetrain.register();
 
     drivetrain.setDefaultCommand(new DriveCommand(
@@ -52,9 +58,9 @@ public class RobotContainer {
             () -> yLimiter.calculate(modifyAxis(controller1.getLeftX())),
             () -> rotLimiter.calculate(modifyAxis(controller1.getRightX())) //(-controller.getLeftTriggerAxis() + controller.getRightTriggerAxis()) + 
     ));
-    
-  }
 
+    configureBindings();
+  }
 
   private static double deadband(double value, double deadband) {
       if (Math.abs(value) > deadband) {
@@ -78,22 +84,18 @@ public class RobotContainer {
       return value;
   }
 
-  /** The container for the robot. Contains subsystems, OI devices, and commands.
-  public RobotContainer() {
-    // Configure the trigger bindings
-    configureBindings();
-  }*/
-
-  /**
-   * Use this method to define your trigger->command mappings. Triggers can be created via the
-   * {@link Trigger#Trigger(java.util.function.BooleanSupplier)} constructor with an arbitrary
-   * predicate, or via the named factories in {@link
-   * edu.wpi.first.wpilibj2.command.button.CommandGenericHID}'s subclasses for {@link
-   * CommandXboxController Xbox}/{@link edu.wpi.first.wpilibj2.command.button.CommandPS4Controller
-   * PS4} controllers or {@link edu.wpi.first.wpilibj2.command.button.CommandJoystick Flight
-   * joysticks}.
-   */
   private void configureBindings() {
+    //Intake Control
+    new JoystickButton(controller1, 2).whileTrue(new IntakeCommand(intakeSubsystem, 0.3));
+    
+    //Launch Control
+    new JoystickButton(controller1, 6).whileTrue(new LaunchCMD(liftLaunchSubsystem, 1));
+    
+    //Feed Control
+    new JoystickButton(controller1, 5).whileTrue(new LaunchCMD(liftLaunchSubsystem, 0.5, 0));
+
+    //Shooter Lift Control
+    //new JoystickButton(controller1, 3).onTrue(new LiftCMD(liftLaunchSubsystem, 90, 0));
   }
 
 }
