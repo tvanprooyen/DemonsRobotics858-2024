@@ -1,74 +1,77 @@
 package frc.robot.subsystems;
 
- import com.revrobotics.AbsoluteEncoder;
+ import javax.lang.model.util.ElementScanner14;
+
+import com.revrobotics.AbsoluteEncoder;
  import com.revrobotics.CANSparkMax;
 import com.revrobotics.SparkPIDController;
-import com.revrobotics.CANSparkBase.ControlType;
 import com.revrobotics.CANSparkLowLevel.MotorType;
  import com.revrobotics.SparkAbsoluteEncoder.Type;
- import com.revrobotics.AbsoluteEncoder;
- import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.filter.SlewRateLimiter;
-import edu.wpi.first.wpilibj.CAN;
- import edu.wpi.first.wpilibj2.command.Command;
- import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.subsystems.IntakeSubsystem.IntakePos;
 
  public class LiftLaunchSubsystem extends SubsystemBase{
+
+    public enum ShooterPos{
+        Store,
+        Amp,
+        Speaker
+    }
+
+    // lift varables
      private final CANSparkMax mLift1 = new CANSparkMax(20, MotorType.kBrushless);
      private final CANSparkMax mLift2 = new CANSparkMax(21, MotorType.kBrushless);
      private AbsoluteEncoder liftEncoder;
      private double liftSet;
-     private double liftSpeed;
-     private double liftError;
-     private double liftSetBuffer;
      private PIDController liftPID;
-     private boolean shouldBuffer;
+     private SlewRateLimiter liftLimiter = new SlewRateLimiter(1);
+     private ShooterPos shooterPos;
+     private Timer speakerTimer, ampTimer;
 
+    // launch variables don't change
      private final CANSparkMax mLaunch1 = new CANSparkMax(23, MotorType.kBrushless);
      private final CANSparkMax mLaunch2 = new CANSparkMax(24, MotorType.kBrushless);
      private double launchSpeed;
-     private SparkPIDController launchPID, launchPID2;
      private SlewRateLimiter launchLimiter = new SlewRateLimiter(0.3);
 
+    // feed variables also don't change
      private final CANSparkMax mFeed1 = new CANSparkMax(25, MotorType.kBrushless);
      private final CANSparkMax mFeed2 = new CANSparkMax(26, MotorType.kBrushless);
      private double feedSpeed;
 
+     private IntakeSubsystem intakeSubsystem;
+
      public LiftLaunchSubsystem(){
      //default speeds
-         this.liftSpeed = 0;
          this.launchSpeed = 0;
          this.feedSpeed = 0;
-
-         this.shouldBuffer = true;
-
-     //launch speed PID
-         launchPID = mLaunch1.getPIDController();//new PIDController(0.0001, 0, 0);
-         launchPID2 = mLaunch2.getPIDController();//new PIDController(0.0001, 0, 0);
-
          mLaunch2.setInverted(true);
+         
 
-         launchPID.setP(2e-6);
-         launchPID.setFF(0.000015);
-         launchPID2.setP(2e-6);
-         launchPID2.setFF(0.000015);
+     //default lift
+         liftPID = new PIDController(0.01, 0, 0);
+         liftEncoder = mLift2.getAbsoluteEncoder(Type.kDutyCycle);
+         this.liftSet =  liftEncoder.getPosition() * 360;
 
-         launchPID.setOutputRange(-1, 1);
-         launchPID2.setOutputRange(-1, 1);
+         mLift1.follow(mLift2, true);
 
-     //default rotation/lift
-         liftPID = new PIDController(0.015, 0, 0);
-         this.liftSet = Math.toRadians(0);
+         this.shooterPos = ShooterPos.Store;
 
-         liftEncoder = mLift1.getAbsoluteEncoder(Type.kDutyCycle);
-         this.liftError = 0;
+         this.ampTimer = new Timer();
+         this.speakerTimer = new Timer();
+
      }
 
 
      ///lift things
      //get position
      public double getLiftPosition(){
-         return liftEncoder.getPosition();
+         return liftEncoder.getPosition() * 360;
      }
 
      //set PID position
@@ -81,31 +84,17 @@ import edu.wpi.first.wpilibj.CAN;
          return this.liftSet;
      }
 
-     //lift PID error
-     public void setLiftError(double liftError){
-         this.liftError = liftError;
+     public boolean isInPosition(){
+        return getLiftSet() - 5 < getLiftPosition() && getLiftSet() + 5 > getLiftPosition();
      }
 
-     public double getLiftError(){
-         return this.liftError;
+     public void setShooterPose(ShooterPos SHOOTERPOS){
+        this.shooterPos = SHOOTERPOS;
      }
 
-     //tolerance within set position
-     public boolean isLiftInPosition(){
-         double liftTol = 1; //TODO need to adjust with testing
-
-         return (getLiftPosition() > (liftSet - liftTol)) && (getLiftPosition() < (liftSet + liftTol));
+     public ShooterPos getShooterPose(){
+        return this.shooterPos;
      }
-
-     //sets PID buffer to save position
-     public void setLiftBuffer(double liftSetBuffer){
-         this.liftSetBuffer = liftSetBuffer;
-     }
-
-     public double getLiftBuffer(){
-         return this.liftSetBuffer;
-     }
-
 
      //launch things
      public void setLaunchSpeed(double launchSpeed){
@@ -128,13 +117,89 @@ import edu.wpi.first.wpilibj.CAN;
 
      @Override
      public void periodic(){
-         //launchPID.setReference(getLaunchSpeed(),ControlType.kVelocity);
-         //launchPID2.setReference(getLaunchSpeed(),ControlType.kVelocity); 
-         mLaunch1.set(launchLimiter.calculate(getLaunchSpeed()));
-         mLaunch2.set(launchLimiter.calculate(-getLaunchSpeed())); 
+       
+        double liftValue = liftPID.calculate(getLiftPosition(), getLiftSet());
+        double ShooterSet = 0;
+        double tempFeedSpeed = getFeedSpeed();
+        double tempLaunchSpeed = getLaunchSpeed();
+
+        SmartDashboard.putNumber("LiftEncoder", getLiftPosition());
+        SmartDashboard.putNumber("lift encoder", getLiftSet());
+        SmartDashboard.putNumber("LiftPID", liftValue);
+
+        liftValue = MathUtil.clamp(liftValue, -0.4, 0.4);
+
+         /*if( getLiftPosition() > 60 || getLiftPosition() < 0 ){
+             liftValue = 0;
+         }
+        mLift2.set(liftLimiter.calculate(liftValue));*/
+
+        if(getLaunchSpeed() == 0){
+            //Amp Sequence
+            if(getLiftSet() == 70 && ampTimer.get() == 0){
+                ampTimer.start();
+                intakeSubsystem.setIntakePose(IntakePos.Amp);
+            }
+
+            if(ampTimer.get() > 8){
+                ampTimer.stop();
+                ampTimer.reset();
+            }else
+            if(ampTimer.get() > 7){
+                tempFeedSpeed = 0;
+                setShooterPose(ShooterPos.Store);
+                intakeSubsystem.setIntakePose(IntakePos.Store);
+            }else
+            if(ampTimer.get() > 6){
+                tempFeedSpeed = 0.8;
+            }else
+            if(ampTimer.get() > 2){
+                setShooterPose(ShooterPos.Amp);
+            }
+
+            //Speaker Sequence
+            if(getLiftSet() == 50 && speakerTimer.get() == 0){
+                speakerTimer.start();
+                intakeSubsystem.setIntakePose(IntakePos.Speaker);
+            }
+
+            if(speakerTimer.get() > 8){
+                speakerTimer.stop();
+                speakerTimer.reset();
+            }else
+            if(speakerTimer.get() > 7){
+                tempFeedSpeed = 0;
+                setShooterPose(ShooterPos.Store);
+                intakeSubsystem.setIntakePose(IntakePos.Store);
+            }else
+            if(speakerTimer.get() > 6){
+                tempFeedSpeed = 0.8;
+            }else
+            if(speakerTimer.get() > 2){
+                setShooterPose(ShooterPos.Speaker);
+            }
+
+            
+        switch(getShooterPose()){
+                case Store:
+            ShooterSet = 20;
+            tempLaunchSpeed = 0;
+            break;
+                case Amp:
+            ShooterSet = 70;
+            tempLaunchSpeed = 0.6;
+            break;
+                case Speaker:
+            ShooterSet = 50;
+            tempLaunchSpeed = 0.8;
+            break;
+        }
+    }
+        mLaunch1.set(launchLimiter.calculate(getLaunchSpeed()));
+        mLaunch2.set(launchLimiter.calculate(-getLaunchSpeed())); 
         
-         mFeed1.set(-getFeedSpeed());
-         mFeed2.set(getFeedSpeed());
+        mFeed1.set(-getFeedSpeed());
+        mFeed2.set(getFeedSpeed());
      }
 
  }

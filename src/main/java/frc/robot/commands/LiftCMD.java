@@ -1,8 +1,9 @@
  package frc.robot.commands;
 
- import frc.robot.subsystems.LiftLaunchSubsystem;
+ import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.subsystems.LiftLaunchSubsystem;
 
- public class LiftCMD {
+ public class LiftCMD extends Command {
      private LiftLaunchSubsystem liftLaunchSubsystem;
      private double liftSet;
      private double liftSpeed;
@@ -13,20 +14,25 @@
      //TODO insert intake into both command things below
      
      //
-     public LiftCMD(LiftLaunchSubsystem liftLaunchSubsystem, double liftSet, double liftSpeed/*, boolean shouldBuffer*/){
+     public LiftCMD(LiftLaunchSubsystem liftLaunchSubsystem, double liftSet /*double liftSpeed, boolean shouldBuffer*/){
          this.liftLaunchSubsystem = liftLaunchSubsystem;
          this.liftSet = liftSet;
-         this.liftSpeed = liftSpeed;
-         this.isFinished = false;
+         //this.liftSpeed = liftSpeed;
 
          //this.shouldBuffer = true;
      }
 
-     public LiftCMD(LiftLaunchSubsystem liftLaunchSubsystem, double liftSet, double liftSpeed, int placeholder){
+     public LiftCMD(LiftLaunchSubsystem liftLaunchSubsystem, double liftSet, int placeholder){
          this.liftLaunchSubsystem = liftLaunchSubsystem;
          this.liftSet = liftSet;
-         this.liftSpeed = 0;
+         //this.liftSpeed = 0;
          this.isFinished = false;
+     }
+
+     @Override
+     public void execute() {
+        liftLaunchSubsystem.liftSet(liftSet);
+
      }
 
      /*@Override

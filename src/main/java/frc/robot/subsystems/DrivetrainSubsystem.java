@@ -1,11 +1,9 @@
 package frc.robot.subsystems;
 
-import java.util.function.Supplier;
-
-//import com.ctre.phoenix.sensors.Pigeon2;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.hardware.Pigeon2;
-//import com.ctre.phoenix.sensors.Pigeon2Configuration;
-import com.swervedrivespecialties.swervelib.MkModuleConfiguration;
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.util.PathPlannerLogging;
 import com.swervedrivespecialties.swervelib.MkSwerveModuleBuilder;
 import com.swervedrivespecialties.swervelib.MotorType;
 import com.swervedrivespecialties.swervelib.SdsModuleConfigurations;
@@ -21,45 +19,28 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
-//import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
-//import edu.wpi.first.wpilibj.shuffleboard.WidgetType;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-import frc.robot.Constants;
+import frc.robot.Constants.PathPlannerConstants;
 import frc.robot.Constants.SDSConstants;
 
 public class DrivetrainSubsystem extends SubsystemBase {
+    //Base Swerve Requirements
     private static final double MAX_VOLTAGE = 12.0;
-    public static final double MAX_VELOCITY_METERS_PER_SECOND = 4.14528;
+    public static final double MAX_VELOCITY_METERS_PER_SECOND = SDSConstants.MAX_VELOCITY_METERS_PER_SECOND;
     public static final double MAX_ANGULAR_VELOCITY_RADIANS_PER_SECOND = MAX_VELOCITY_METERS_PER_SECOND /
             Math.hypot(SDSConstants.DRIVETRAIN_TRACKWIDTH_METERS / 2.0, SDSConstants.DRIVETRAIN_WHEELBASE_METERS / 2.0);
 
-    private final SwerveModule frontLeftModule;
-    private final SwerveModule frontRightModule;
-    private final SwerveModule  backLeftModule;
-    private final SwerveModule backRightModule;
-
-    private final PIDController RotatePID;
-
-    private final PIDController OdoXPID;
-
-    private final PIDController OdoYPID;
+    private final SwerveModule frontLeftModule, frontRightModule, backLeftModule, backRightModule;
 
     private final SwerveDriveOdometry odometry;
 
     public final Pigeon2 gyroscope = new Pigeon2(SDSConstants.DRIVETRAIN_PIGEON_ID);
-
-    private final Field2d fieldWG = new Field2d();
-
-    private boolean RotateLock;
-
-    private double RotateSet, XSet, YSet;
-
-    private final ShuffleboardTab fieldSB = Shuffleboard.getTab("Field");
 
     public final SwerveDriveKinematics kinematics = new SwerveDriveKinematics(
             new Translation2d(SDSConstants.DRIVETRAIN_TRACKWIDTH_METERS / 2.0, SDSConstants.DRIVETRAIN_WHEELBASE_METERS / 2.0),
@@ -67,14 +48,24 @@ public class DrivetrainSubsystem extends SubsystemBase {
             new Translation2d(-SDSConstants.DRIVETRAIN_TRACKWIDTH_METERS / 2.0, SDSConstants.DRIVETRAIN_WHEELBASE_METERS / 2.0),
             new Translation2d(-SDSConstants.DRIVETRAIN_TRACKWIDTH_METERS / 2.0, -SDSConstants.DRIVETRAIN_WHEELBASE_METERS / 2.0)
     );
-        /* new SwerveDriveOdometry(kinematics, Rotation2d.fromDegrees(gyroscope.getFusedHeading())); */
 
     private ChassisSpeeds chassisSpeeds = new ChassisSpeeds(0.0, 0.0, 0.0);
+
+    //Auto Rotate
+    private final PIDController RotatePID;
+
+    private double RotateSet;
+
+    private boolean rotateLock = false;
+
+    //Create Field for visualizing PathPlanner and Odometery
+    private Field2d field = new Field2d();
 
     public DrivetrainSubsystem() {
         ShuffleboardTab shuffleboardTab = Shuffleboard.getTab("Drivetrain");
 
-         frontLeftModule = new MkSwerveModuleBuilder()
+        // Create the swerve modules
+        frontLeftModule = new MkSwerveModuleBuilder()
         .withDriveMotor(MotorType.NEO, SDSConstants.FRONT_LEFT_MODULE_DRIVE_MOTOR)
         .withSteerMotor(MotorType.NEO, SDSConstants.FRONT_LEFT_MODULE_STEER_MOTOR)
         .withSteerEncoderPort(SDSConstants.FRONT_LEFT_MODULE_STEER_ENCODER)
@@ -123,47 +114,65 @@ public class DrivetrainSubsystem extends SubsystemBase {
                         .withPosition(6, 0)
         ).build();
 
+
+        // Zero the swerve Gyro
+        gyroscope.setYaw(0.0);
+
+        // Create the odometry
         odometry = new SwerveDriveOdometry(
-            kinematics,
-            Rotation2d.fromDegrees(getGyroYaw()),
-            new SwerveModulePosition[] {
-            frontLeftModule.getPosition(),
-            frontRightModule.getPosition(),
-            backLeftModule.getPosition(),
-            backRightModule.getPosition()
+        kinematics,
+        Rotation2d.fromDegrees(getGyroYaw()),
+        new SwerveModulePosition[] {
+        frontLeftModule.getPosition(),
+          frontRightModule.getPosition(),
+          backLeftModule.getPosition(),
+          backRightModule.getPosition()
         });
 
+        //Report Odometry to Shuffleboard
         shuffleboardTab.addNumber("Gyroscope Angle", () -> getRotation().getDegrees());
         shuffleboardTab.addNumber("Pose X", () -> odometry.getPoseMeters().getX());
         shuffleboardTab.addNumber("Pose Y", () -> odometry.getPoseMeters().getY());
 
-        //fieldWG.setRobotPose(new Pose2d(odometry.getPoseMeters().getY(), odometry.getPoseMeters().getX(), getRotation()));
-
-        //updateField2d();
-        //fieldSB.add("Robot Pose", fieldWG);
-
+        //Auto Rotate PID
         RotatePID = new PIDController(0.01, 0.00, 0.00);
         RotatePID.enableContinuousInput(-180.0f,  180.0f);
         RotatePID.setTolerance(2);
 
-        OdoXPID = new PIDController(0.3, 0.00, 0.0);
-        OdoYPID = new PIDController(0.3, 0.00, 0.0);
-
         RotateSet = 0;
+        this.rotateLock = false;
 
-        this.RotateLock = false;
+        //PathPlanner
+        // Configure AutoBuilder
+        AutoBuilder.configureHolonomic(
+        this::robotPose, 
+        this::resetOdometry, 
+        this::getSpeeds, 
+        this::driveRobotRelative, 
+        PathPlannerConstants.pathFollowerConfig,
+        () -> {
+            // Boolean supplier that controls when the path will be mirrored for the red alliance
+            // This will flip the path being followed to the red side of the field.
+            // THE ORIGIN WILL REMAIN ON THE BLUE SIDE
 
-        //gyroscope.setYaw(0.0);
-        
-    }
+            var alliance = DriverStation.getAlliance();
+            if (alliance.isPresent()) {
+                return alliance.get() == DriverStation.Alliance.Red;
+            }
+            return false;
+        },
+        this
+        );
 
-    public void updateField2d() {
-        fieldWG.setRobotPose(new Pose2d(odometry.getPoseMeters().getY(), odometry.getPoseMeters().getX(), getRotation()));
+        // Set up custom logging to add the current path to a field 2d widget
+        PathPlannerLogging.setLogActivePathCallback((poses) -> field.getObject("path").setPoses(poses));
+
+        SmartDashboard.putData("Field", field);
     }
 
     public void zeroGyroscope() {
         odometry.resetPosition(
-            Rotation2d.fromDegrees(getGyroYaw()), 
+            Rotation2d.fromDegrees(getGyroYaw(/*true*/)), 
             new SwerveModulePosition[] {
                 frontLeftModule.getPosition(),
                 frontRightModule.getPosition(),
@@ -179,17 +188,22 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     public Pose2d robotPose() {
-        return new Pose2d(odometry.getPoseMeters().getTranslation(), Rotation2d.fromDegrees(0.0));
-    }
-
-
-    public SwerveModuleState[] robotModuleStates(){
-        return kinematics.toSwerveModuleStates(chassisSpeeds);
+        return odometry.getPoseMeters();  //new Pose2d(odometry.getPoseMeters().getTranslation(), Rotation2d.fromDegrees(0.0));
     }
 
     public double getGyroYaw() {
-        return gyroscope.getYaw().getValueAsDouble();
+        return gyroscope.getYaw().getValue();
     }
+
+    /*public double getGyroYaw(boolean invert) {
+        double yawV = gyroscope.getYaw().getValue();
+
+        if(invert) {
+            yawV = 360 - yawV;
+        }
+
+        return yawV;
+    }*/
 
     public Rotation2d getRotation() {
         return odometry.getPoseMeters().getRotation();
@@ -199,10 +213,29 @@ public class DrivetrainSubsystem extends SubsystemBase {
         return odometry.getPoseMeters();
     }
 
+    // Auto Drive
+    public void driveFieldRelative(ChassisSpeeds fieldRelativeSpeeds) {
+        driveRobotRelative(ChassisSpeeds.fromFieldRelativeSpeeds(fieldRelativeSpeeds, robotPose().getRotation()));
+    }
+
+    public void driveRobotRelative(ChassisSpeeds robotRelativeSpeeds) {
+        ChassisSpeeds targetSpeeds = ChassisSpeeds.discretize(robotRelativeSpeeds, 0.02);
+
+        this.chassisSpeeds = targetSpeeds;
+    }
+
+    //Teleop Drive
     public void drive(ChassisSpeeds chassisSpeeds) {
         this.chassisSpeeds = chassisSpeeds;
     }
 
+    public ChassisSpeeds getSpeeds() {
+        return this.chassisSpeeds;
+    }
+
+    public SwerveModuleState[] robotModuleStates(){
+        return kinematics.toSwerveModuleStates(this.chassisSpeeds);
+    }
 
     public void setPIDRotateValue(double RotateSet) {
         this.RotateSet = RotateSet;
@@ -212,51 +245,23 @@ public class DrivetrainSubsystem extends SubsystemBase {
         return this.RotateSet;
     }
 
-    public boolean getRotateLock(){
-        return this.RotateLock;
-    }
-
     public double rotatePIDCalculation() {
-        double futureRotatePID = 
-            MathUtil.clamp(
-                RotatePID.calculate(
-                    getRotation().getDegrees(), RotateSet),
-             -1, 1);
+        double futureRotatePID = MathUtil.clamp(RotatePID.calculate(getRotation().getDegrees(), RotateSet), -1, 1);
 
         return futureRotatePID;
     }
 
-    public void setPIDXValue(double XSet) {
-        this.XSet = XSet;
+    public void setRotateLock(boolean rotateLock) {
+        this.rotateLock = rotateLock;
     }
 
-    public double getPIDXValue() {
-        return this.XSet;
-    }
-
-    public void setPIDYValue(double YSet) {
-        this.YSet = YSet;
-    }
-
-    public double getPIDYValue() {
-        return this.YSet;
-    }
-
-    public double XPIDCalculation() {
-        return OdoXPID.calculate(odometry.getPoseMeters().getX(), XSet);
-    }
-
-    public double YPIDCalculation() {
-        return OdoXPID.calculate(odometry.getPoseMeters().getY(), YSet);
-    }
-
-    public void setRotateLock(boolean RotateLock) {
-        this.RotateLock = RotateLock;
+    public boolean getRotateLock() {
+        return this.rotateLock;
     }
 
     public void resetOdometry(Pose2d pose) {
         odometry.resetPosition(
-            Rotation2d.fromDegrees(getGyroYaw()), 
+            Rotation2d.fromDegrees(getGyroYaw(/*true*/)), 
             new SwerveModulePosition[] {
                 frontLeftModule.getPosition(),
                 frontRightModule.getPosition(),
@@ -274,8 +279,9 @@ public class DrivetrainSubsystem extends SubsystemBase {
 
         dashboard();
 
+        // Update the odometry, Important otherwise robot will be "lost"
         odometry.update(
-        Rotation2d.fromDegrees(getGyroYaw()),
+        Rotation2d.fromDegrees(getGyroYaw(/*true*/)),
         new SwerveModulePosition[] {
             frontLeftModule.getPosition(),
             frontRightModule.getPosition(),
@@ -283,9 +289,9 @@ public class DrivetrainSubsystem extends SubsystemBase {
             backRightModule.getPosition()
         });
 
-        SwerveModuleState[] states = kinematics.toSwerveModuleStates(chassisSpeeds);
+        field.setRobotPose(robotPose());
 
-        setModuleStates(states);
+        setModuleStates(robotModuleStates());
     }
 
     public void setModuleStates(SwerveModuleState[] states) {
@@ -295,19 +301,12 @@ public class DrivetrainSubsystem extends SubsystemBase {
         backRightModule.set(states[3].speedMetersPerSecond / MAX_VELOCITY_METERS_PER_SECOND * MAX_VOLTAGE, states[3].angle.getRadians());
     }
 
-    public void setModuleStatesInverse(SwerveModuleState[] states) {
-        frontLeftModule.set(-states[0].speedMetersPerSecond / MAX_VELOCITY_METERS_PER_SECOND * MAX_VOLTAGE, states[0].angle.getRadians());
-        frontRightModule.set(-states[1].speedMetersPerSecond / MAX_VELOCITY_METERS_PER_SECOND * MAX_VOLTAGE, states[1].angle.getRadians());
-        backLeftModule.set(-states[2].speedMetersPerSecond / MAX_VELOCITY_METERS_PER_SECOND * MAX_VOLTAGE, states[2].angle.getRadians());
-        backRightModule.set(-states[3].speedMetersPerSecond / MAX_VELOCITY_METERS_PER_SECOND * MAX_VOLTAGE, states[3].angle.getRadians());
-    }
-
     public void stopModules() {
-        frontLeftModule.set(0,0);
-        frontRightModule.set(0,0);
-        backLeftModule.set(0,0);
-        backRightModule.set(0,0);
-        backLeftModule.set(0,0);
+        //Stop Modules
+        frontLeftModule.set(0, 0);
+        frontRightModule.set(0, 0);
+        backLeftModule.set(0, 0);
+        backRightModule.set(0, 0);
     }
 
     private void dashboard() {

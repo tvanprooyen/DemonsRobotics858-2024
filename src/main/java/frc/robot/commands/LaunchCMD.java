@@ -7,17 +7,16 @@ import frc.robot.subsystems.LiftLaunchSubsystem;
      private LiftLaunchSubsystem liftLaunchSubsystem;
      private double launchSpeed;
      private double feedSpeed;
-     private int placeholder;
      
      public LaunchCMD(LiftLaunchSubsystem liftLaunchSubsystem, double launchSpeed){
          this.liftLaunchSubsystem = liftLaunchSubsystem;
          this.launchSpeed = launchSpeed;
      }
 
-     public LaunchCMD(LiftLaunchSubsystem liftLaunchSubsystem, double feedSpeed, int placeholder){
+     public LaunchCMD(LiftLaunchSubsystem liftLaunchSubsystem, double feedSpeed, double launchSpeed){
         this.liftLaunchSubsystem = liftLaunchSubsystem;
         this.feedSpeed = feedSpeed;
-        this.placeholder = placeholder;
+        this.launchSpeed = launchSpeed;
      }
 
      @Override 
