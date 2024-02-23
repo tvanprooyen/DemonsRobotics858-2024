@@ -14,6 +14,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.IntakeSubsystem.IntakePos;
+import frc.robot.util.TimeOutTimer;
 
  public class LiftLaunchSubsystem extends SubsystemBase{
 
@@ -31,7 +32,9 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
      private PIDController liftPID;
      private SlewRateLimiter liftLimiter = new SlewRateLimiter(0.25);
      private ShooterPos shooterPos, previousShooterPose;
-     private Timer speakerTimer, ampTimer, TimeOut, feedTimer; //Set New Timers in Class
+     private Timer speakerTimer, ampTimer, feedTimer; //Set New Timers in Class
+
+     private TimeOutTimer TimeOut;
 
     // launch variables don't change
      private final CANSparkMax mLaunch1 = new CANSparkMax(23, MotorType.kBrushless);
@@ -67,7 +70,7 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
          this.ampTimer = new Timer();
          this.speakerTimer = new Timer();
 
-         this.TimeOut = new Timer();
+         this.TimeOut = new TimeOutTimer();
 
          this.feedTimer = new Timer();
 
@@ -152,7 +155,7 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
         return this.speakerTimer.get();
      } */ //No need for this
 
-    private double getIsRunningTol() {
+    private final double getIsRunningTol() {
         return 3;
     }
 
@@ -180,8 +183,8 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
         if(CheckMotors) {
             running = running  &&
             (
-                getLaunchSpeed() == 0 &&
-                getFeedSpeed() == 0
+                getLaunchSpeed() != 0 &&
+                getFeedSpeed() != 0
             );
         }
 
@@ -217,7 +220,7 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
 
         /*
             Place Sequences Here
-            Use Only Get and Set Methods
+            Use Only Get and Set Methods for Motors
         */
 
 
@@ -241,31 +244,45 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
 
         switch (getShooterPose()) {
             case Store:
-                //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
-                //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
+                //Use this as a template :D
 
                 //Constants - In general, that way its easy to adjust later
                 double liftAngle = 50;
-                double lanchSpeed = 0;
+                double launchSpeed = 0;
                 double feedSpeed = 0;
                 //double intakeAngle = 40; // the current value is wrong //NO NEED FOR THIS ;)
 
-                //TODO Times Maybe Off, Test Timeouts
-                //Check to see if another sequence is running, this is to avoid breaking things 
-                if(isFinished()) {
-                    //Timer Is In Seconds
-                    if(TimeOut.get() < 2 && (getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1)){
+                //Expected Sequence
+                //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
+                //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
+
+                //Check if ready to run
+                if(!isFinished()) {
+                    //Timer Is In Seconds (Using Special TimeOutTimer Class to add time), This avoids having to wait until timer is finished
+                    if(TimeOut.get() < 2){ //TODO Times Maybe Wrong, Test Timeouts
                         //(SQ:1)
-                        setLaunchSpeed(lanchSpeed);
+                        setLaunchSpeed(launchSpeed);
                         setFeedSpeed(feedSpeed);
                         liftSet(liftAngle);
-                    } else if(TimeOut.get() < 4 && intakeSubsystem.getIntakePose() != IntakePos.Store){
+
+                        if (!isRunning()) { //Use !isRunning(false) //(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1)
+                            TimeOut.addTime(4); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
+                        }
+                    } else if(TimeOut.get() < 4) { //TODO Times Maybe Wrong, Test Timeouts
                         //(SQ:2)
                         intakeSubsystem.setIntakePose(IntakePos.Store); //Set Intake Pose
-                    } else if(TimeOut.get() < 6) {
-                        setFinished(true);
-                        TimeOut.stop(); //Stop because it doesn't need to run anymore
+
+                        if(!intakeSubsystem.isRunning() && intakeSubsystem.getIntakePose() == IntakePos.Store) { //Use getIntakePose //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
+                            TimeOut.addTime(6); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
+                        }
                     }
+                }
+
+                //Finish
+                if(TimeOut.get() > 6) { //TODO Times Maybe Wrong, Test Timeouts
+                    //Cleanup and report
+                    setFinished(true); //Broadcast that the launch mech is not running a sequence
+                    TimeOut.stop(); //Stop because it doesn't need to run anymore
                 }
 
                 //Changed to add TimeOuts - Just in case the posistion is never reached fully
