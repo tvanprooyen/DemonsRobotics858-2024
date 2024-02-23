@@ -30,7 +30,7 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
      private double liftSet;
      private PIDController liftPID;
      private SlewRateLimiter liftLimiter = new SlewRateLimiter(0.25);
-     private ShooterPos shooterPos;
+     private ShooterPos shooterPos, previousShooterPose;
      private Timer speakerTimer, ampTimer, TimeOut, feedTimer; //Set New Timers in Class
 
     // launch variables don't change
@@ -45,6 +45,8 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
      private double feedSpeed;
 
      private IntakeSubsystem intakeSubsystem;
+
+     private boolean finished, poseChanged;
 
      public LiftLaunchSubsystem(){
      //default speeds
@@ -68,6 +70,14 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
          this.TimeOut = new Timer();
 
          this.feedTimer = new Timer();
+
+         this.finished = true;
+
+         this.poseChanged = false;
+
+         this.previousShooterPose = ShooterPos.Store;
+
+         //this.shooterPos = ShooterPos.Store; //For Later
 
         SmartDashboard.putNumber("LiftEncoder", getLiftPosition());
         SmartDashboard.putNumber("lift encoder", getLiftSet());
@@ -178,13 +188,55 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
         return running;
     }
 
+    public boolean isFinished() {
+        return this.finished;
+    }
+
+    public void setFinished(boolean finished) {
+        this.finished = finished;
+    }
+
+    public boolean poseChanged() {
+        return this.poseChanged;
+    }
+
+    public void setPoseChanged(boolean poseChanged) {
+        this.poseChanged = poseChanged;
+    }
+
+    public ShooterPos getPreviousShooterPose() {
+        return this.previousShooterPose;
+    }
+
+    public void setPreviousShooterPose(ShooterPos previousShooterPose) {
+        this.previousShooterPose = previousShooterPose;
+    }
+
      @Override
      public void periodic(){
 
-        /* 
+        /*
             Place Sequences Here
             Use Only Get and Set Methods
         */
+
+
+        //Test if Shooter Pose Has Changed, Only for 1 Frame
+        if(getPreviousShooterPose() != getShooterPose()) {
+            setPreviousShooterPose(getShooterPose());
+            setPoseChanged(true);
+        } else {
+            setPoseChanged(false);
+        }
+
+
+        //If the pose has been changed then start the time out timer and decalre that it has started
+        if(poseChanged()) {
+            //Start Timer
+            TimeOut.reset(); //Reset the timer to zero
+            TimeOut.start(); //Start the Timer
+            setFinished(false); //Broadcast that the launch mech is running a sequence
+        }
         
 
         switch (getShooterPose()) {
@@ -192,10 +244,32 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
                 //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
                 //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
 
+                //Constants - In general, that way its easy to adjust later
                 double liftAngle = 50;
+                double lanchSpeed = 0;
+                double feedSpeed = 0;
                 //double intakeAngle = 40; // the current value is wrong //NO NEED FOR THIS ;)
 
-                if(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1) {
+                //TODO Times Maybe Off, Test Timeouts
+                //Check to see if another sequence is running, this is to avoid breaking things 
+                if(isFinished()) {
+                    //Timer Is In Seconds
+                    if(TimeOut.get() < 2 && (getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1)){
+                        //(SQ:1)
+                        setLaunchSpeed(lanchSpeed);
+                        setFeedSpeed(feedSpeed);
+                        liftSet(liftAngle);
+                    } else if(TimeOut.get() < 4 && intakeSubsystem.getIntakePose() != IntakePos.Store){
+                        //(SQ:2)
+                        intakeSubsystem.setIntakePose(IntakePos.Store); //Set Intake Pose
+                    } else if(TimeOut.get() < 6) {
+                        setFinished(true);
+                        TimeOut.stop(); //Stop because it doesn't need to run anymore
+                    }
+                }
+
+                //Changed to add TimeOuts - Just in case the posistion is never reached fully
+                /* if(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1) {
                     //(SQ:1)
                     setLaunchSpeed(0);
                     setFeedSpeed(0);
@@ -203,7 +277,7 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
                 } else if(intakeSubsystem.getIntakePose() != IntakePos.Store) { //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
                     //(SQ:2)
                     intakeSubsystem.setIntakePose(IntakePos.Store);
-                }
+                } */
                 
                 break;
 
