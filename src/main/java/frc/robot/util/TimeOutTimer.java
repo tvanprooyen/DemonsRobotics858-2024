@@ -4,19 +4,19 @@ import edu.wpi.first.wpilibj.Timer;
 
 public class TimeOutTimer extends Timer {
 
-    private double addTime;
+    private double setTime;
 
     public TimeOutTimer() {
         super();
-        this.addTime = 0;
+        this.setTime = 0;
     }
 
-    public void addTime(double addTime) {
-        this.addTime = addTime;
+    public void setTime(double setTime) {
+        this.setTime = setTime;
     }
 
     @Override
     public double get() {
-        return super.get() + this.addTime;
+        return super.get() + this.setTime;
     }
 }

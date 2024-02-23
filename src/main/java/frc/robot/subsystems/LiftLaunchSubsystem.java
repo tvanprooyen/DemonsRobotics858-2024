@@ -261,19 +261,25 @@ import frc.robot.util.TimeOutTimer;
                     //Timer Is In Seconds (Using Special TimeOutTimer Class to add time), This avoids having to wait until timer is finished
                     if(TimeOut.get() < 2){ //TODO Times Maybe Wrong, Test Timeouts
                         //(SQ:1)
+
+                        //Set Actuators
                         setLaunchSpeed(launchSpeed);
                         setFeedSpeed(feedSpeed);
                         liftSet(liftAngle);
 
+                        //Our Desired End State
                         if (!isRunning()) { //Use !isRunning(false) //(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1)
-                            TimeOut.addTime(4); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
+                            TimeOut.setTime(4); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
                         }
                     } else if(TimeOut.get() < 4) { //TODO Times Maybe Wrong, Test Timeouts
                         //(SQ:2)
+
+                        //Set Actuators
                         intakeSubsystem.setIntakePose(IntakePos.Store); //Set Intake Pose
 
+                        //Our Desired End State
                         if(!intakeSubsystem.isRunning() && intakeSubsystem.getIntakePose() == IntakePos.Store) { //Use getIntakePose //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
-                            TimeOut.addTime(6); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
+                            TimeOut.setTime(6); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
                         }
                     }
                 }
