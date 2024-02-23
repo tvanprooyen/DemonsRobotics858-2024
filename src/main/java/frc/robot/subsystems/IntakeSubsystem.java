@@ -38,16 +38,14 @@ public class IntakeSubsystem extends SubsystemBase {
     private IntakePos intakePos;
     private LiftLaunchSubsystem llSS;
 
-    public IntakeSubsystem(LiftLaunchSubsystem llSS){
+    public IntakeSubsystem(){
 
         // deploy settings
         DeployMotor = new CANSparkMax(30, MotorType.kBrushless);
         DeployEncoder = DeployMotor.getAbsoluteEncoder(Type.kDutyCycle);
         DeployPID = new PIDController(0.008 , 0.0001, 0.002);
         DeployPID.enableContinuousInput(0, 360);
-        // this.DeploySet = getDeployEncoder();
-        this.DeploySet = DeployEncoder.getPosition() * 360;
-
+        this.DeploySet = getDeployEncoder();  //This will get the lift position. Methods can be called from a constructor, no need to do > DeployEncoder.getPosition() * 360
 
         // feed settings
         IntakeMotor = new CANSparkMax(31, MotorType.kBrushless);
@@ -61,7 +59,13 @@ public class IntakeSubsystem extends SubsystemBase {
         SmartDashboard.putNumber("P Value", 0);
         SmartDashboard.putNumber("I Value", 0);
         SmartDashboard.putNumber("D Value", 0);
+    }
 
+    /**
+    * Sets the LiftLaunch Subsystem from the Robot Container
+    * @param llSS LiftLaunchSubsystem
+    */
+    public void setLiftLaunchSubsystem(LiftLaunchSubsystem llSS) {
         this.llSS = llSS;
     }
 

@@ -51,7 +51,7 @@ public class RobotContainer {
 
   // Subsystems
   private final LiftLaunchSubsystem liftLaunchSubsystem = new LiftLaunchSubsystem();
-  private final IntakeSubsystem intakeSubsystem = new IntakeSubsystem(liftLaunchSubsystem);
+  private final IntakeSubsystem intakeSubsystem = new IntakeSubsystem();
 
   // Create a new SlewRateLimiter with a maximum rate of 15
   private final SlewRateLimiter xLimiter = new SlewRateLimiter(15);
@@ -60,6 +60,11 @@ public class RobotContainer {
 
   /** The container for the robot. Contains subsystems, OI devices, and commands. */
   public RobotContainer() {
+
+    //Set Subsystems for cross communication
+    liftLaunchSubsystem.setIntakeSubsystem(intakeSubsystem); //This Method will allow us to control motors in the IntakeSubsystem from the LiftLaunchSubsystem
+    intakeSubsystem.setLiftLaunchSubsystem(liftLaunchSubsystem); //This Method will allow us to control motors in the LiftLaunchSubsystem from the IntakeSubsystem
+
     //Set Drive Controls
      drivetrain.setDefaultCommand(new DriveCommand(
             drivetrain,

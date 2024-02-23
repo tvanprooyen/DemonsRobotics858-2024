@@ -11,6 +11,10 @@ public class TimeOutTimer extends Timer {
         this.setTime = 0;
     }
 
+    /**
+     * Set the time to be added to the current time
+     * @param setTime in seconds
+     */
     public void setTime(double setTime) {
         this.setTime = setTime;
     }

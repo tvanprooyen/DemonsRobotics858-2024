@@ -1,6 +1,8 @@
 package frc.robot.subsystems;
 
- import javax.lang.model.util.ElementScanner14;
+ import java.util.Map;
+
+import javax.lang.model.util.ElementScanner14;
 
 import com.revrobotics.AbsoluteEncoder;
  import com.revrobotics.CANSparkMax;
@@ -10,7 +12,13 @@ import com.revrobotics.CANSparkLowLevel.MotorType;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.filter.SlewRateLimiter;
+import edu.wpi.first.wpilibj.CAN;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardLayout;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.subsystems.IntakeSubsystem.IntakePos;
@@ -47,10 +55,13 @@ import frc.robot.util.TimeOutTimer;
      private final CANSparkMax mFeed2 = new CANSparkMax(26, MotorType.kBrushless);
      private double feedSpeed;
 
-     private IntakeSubsystem intakeSubsystem;
+     private IntakeSubsystem intakeSubsystem; // Not actually adding the subsystem, only accessing methods! Without setting a subsystem, it will not be added to the scheduler. Added a method below to set the subsystem
 
      private boolean finished, poseChanged;
 
+     /**
+      * Constructor for LiftLaunchSubsystem
+      */
      public LiftLaunchSubsystem(){
      //default speeds
          this.launchSpeed = 0;
@@ -61,56 +72,108 @@ import frc.robot.util.TimeOutTimer;
      //default lift
          liftPID = new PIDController(0.01, 0, 0);
          liftEncoder = mLift2.getAbsoluteEncoder(Type.kDutyCycle);
-         this.liftSet =  liftEncoder.getPosition() * 360;
+         this.liftSet =  getLiftPosition(); //This will get the lift position. Methods can be called from a constructor, no need to do > liftEncoder.getPosition() * 360
 
-         mLift1.follow(mLift2, true);
+         mLift1.follow(mLift2, true); //Keep in mind both will flash the same color for forward and reverse
 
          this.shooterPos = ShooterPos.Store;
+         this.previousShooterPose = ShooterPos.Store;
 
          this.ampTimer = new Timer();
          this.speakerTimer = new Timer();
-
-         this.TimeOut = new TimeOutTimer();
-
+         this.TimeOut = new TimeOutTimer(); //Special timer for setting time in seconds
          this.feedTimer = new Timer();
 
-         this.finished = true;
+          //We want the pose to change when starting up
+         this.finished = false;
+         this.poseChanged = true;
 
-         this.poseChanged = false;
-
-         this.previousShooterPose = ShooterPos.Store;
-
-         //this.shooterPos = ShooterPos.Store; //For Later
-
-        SmartDashboard.putNumber("LiftEncoder", getLiftPosition());
-        SmartDashboard.putNumber("lift encoder", getLiftSet());
-        //SmartDashboard.putNumber("LiftPID", liftValue);
-        SmartDashboard.putNumber("Shooter Timer", speakerTimer.get());
+        dashboard();
 
      }
 
+    /**
+    * Sets the Intake Subsystem from the Robot Container
+    * @param intakeSubsystem IntakeSubsystem
+    */
+     public void setIntakeSubsystem(IntakeSubsystem intakeSubsystem) { // Once the subsystem is added to robot container, then we can set it here
+         this.intakeSubsystem = intakeSubsystem;
+     }
 
-     ///lift things
-     //get position
+     /**
+      * Sends Data to SmartDashboard<p>Only needs to be set once. SubsystemBase makes each SmartDashboard and Shuffleboard object "sendable", and will call each one periodically.</p>
+      */
+     private void dashboard() {
+        ShuffleboardTab tab = Shuffleboard.getTab("Lift Launch");
+
+        //Lift Layout
+        ShuffleboardLayout lift = tab
+        .getLayout("Lift", BuiltInLayouts.kList)
+        .withSize(2, 2);
+
+        lift.add("Lift SetPoint", getLiftSet());
+        lift.add("Lift Encoder", getLiftPosition())
+        .withWidget(BuiltInWidgets.kGyro)
+        .withProperties(Map.of("min", 0, "max", 360)); //Max Angle is 360
+
+        //Launch Layout
+        ShuffleboardLayout launch = tab
+        .getLayout("Launch", BuiltInLayouts.kList)
+        .withSize(3, 4);
+
+        launch.add("Launch Motor 1", getMotorVelocity(mLaunch1))
+        .withWidget(BuiltInWidgets.kNumberBar)
+        .withProperties(Map.of("min", 0, "max", 5676)); //Max RPM is 5676
+        
+        launch.add("Launch Motor 2", getMotorVelocity(mLaunch2)).withWidget(BuiltInWidgets.kNumberBar)
+        .withWidget(BuiltInWidgets.kNumberBar)
+        .withProperties(Map.of("min", 0, "max", 5676)); //Max RPM is 5676
+
+        launch.add("Feed Motor 1", getMotorVelocity(mFeed1)).withWidget(BuiltInWidgets.kNumberBar)
+        .withWidget(BuiltInWidgets.kNumberBar)
+        .withProperties(Map.of("min", 0, "max", 11000)); //Max RPM is 11000
+
+        launch.add("Feed Motor 2", getMotorVelocity(mFeed2)).withWidget(BuiltInWidgets.kNumberBar)
+        .withWidget(BuiltInWidgets.kNumberBar)
+        .withProperties(Map.of("min", 0, "max", 11000)); //Max RPM is 11000
+        
+
+        //SmartDashboard.putNumber("LiftEncoder", getLiftPosition());
+        //SmartDashboard.putNumber("lift encoder", getLiftSet());
+        //SmartDashboard.putNumber("LiftPID", liftValue);
+        //SmartDashboard.putNumber("Shooter Timer", speakerTimer.get());
+     }
+
+
+     /**
+      * Gets the Lift Position
+      * @return Lift Position in Degrees
+      */
      public double getLiftPosition(){
          return liftEncoder.getPosition() * 360;
      }
 
-     //set PID position
+     /**
+      * Sets the Lift Setpoint
+      * @param liftSet 0 thru 360 Degrees
+      */
      public void liftSet(double liftSet){
          this.liftSet = liftSet;
      }
 
-     //get PID position
+     /**
+      * Gets the Lift Setpoint
+      * @return Lift Setpoint
+      */
      public double getLiftSet(){
          return this.liftSet;
      }
 
-     public boolean isInPosition(){
-        return getLiftSet() - 5 < getLiftPosition() && getLiftSet() + 5 > getLiftPosition();
-     }
-
-     public void setShooterPose(ShooterPos SHOOTERPOS){
+     /**
+      * Sets the Current Shooter Pose
+      * @param SHOOTERPOS ShooterPos
+      */
+     public void setShooterPose(ShooterPos SHOOTERPOS) {
         this.shooterPos = SHOOTERPOS;
      }
 
@@ -138,7 +201,6 @@ import frc.robot.util.TimeOutTimer;
          return this.launchSpeed;
      }
 
-
      /**
       * Sets the Feed Speed
       * @param feedSpeed -1 thru 1 Motor Speed(ex: 0.5 = %50)
@@ -147,6 +209,14 @@ import frc.robot.util.TimeOutTimer;
          this.feedSpeed = feedSpeed;
      }
 
+     private double getMotorVelocity(CANSparkMax motor){
+         return motor.getEncoder().getVelocity();
+     }
+
+    /**
+    * Gets the current feed speed
+    * @return -1 thru 1 Motor Speed(ex: 0.5 = %50)
+    */
      private double getFeedSpeed(){
          return this.feedSpeed;
      }
@@ -155,24 +225,48 @@ import frc.robot.util.TimeOutTimer;
         return this.speakerTimer.get();
      } */ //No need for this
 
+    /**
+     * Gets the Running Tolerance for checking Lift Posistion
+     * @return Tolerance in Degrees
+     */
     private final double getIsRunningTol() {
         return 3;
     }
 
+    /**
+     * Checks if the Lift is Running
+     * @return True if the Lift is Running
+     */
     public boolean isRunning() {
         double tolerance = getIsRunningTol(); //In Deg Angle
         return isRunning(tolerance, true);
     }
 
+    /**
+     * Checks if the Lift is Running
+     * @param CheckMotors - Check if the Feed and Shooter Motors are Running
+     * @return True if the Lift is Running
+     */
     public boolean isRunning(boolean CheckMotors) {
         double tolerance = getIsRunningTol(); //In Deg Angle
         return isRunning(tolerance, CheckMotors);
     }
 
+    /**
+     * Checks if the Lift is Running
+     * @param tolerance in Degrees
+     * @return True if the Lift is Running
+     */
     public boolean isRunning(double tolerance) {
         return isRunning(tolerance, true);
     }
 
+    /**
+     * Checks if the Lift is Running
+     * @param tolerance in Degrees
+     * @param CheckMotors - Check if the Feed and Shooter Motors are Running
+     * @return True if the Lift is Running
+     */
     public boolean isRunning(double tolerance, boolean CheckMotors) {
         boolean running = liftEncoder.getVelocity() < 0.01 && 
         (
@@ -191,26 +285,50 @@ import frc.robot.util.TimeOutTimer;
         return running;
     }
 
+    /**
+     * Checks if the current Sequence is Finished
+     * @return True if the Sequence is Finished
+     */
     public boolean isFinished() {
         return this.finished;
     }
 
+    /**
+     * Sets the Sequence to Finished
+     * @param finished boolean
+     */
     public void setFinished(boolean finished) {
         this.finished = finished;
     }
 
+    /**
+     * Checks if the Pose has Changed
+     * @return True if the Pose has Changed
+    */
     public boolean poseChanged() {
         return this.poseChanged;
     }
 
+    /**
+     * Sets the Pose Changed
+     * @param poseChanged boolean
+     */
     public void setPoseChanged(boolean poseChanged) {
         this.poseChanged = poseChanged;
     }
 
+    /**
+     * Gets the Previous Shooter Pose
+     * @return ShooterPos
+     */
     public ShooterPos getPreviousShooterPose() {
         return this.previousShooterPose;
     }
 
+    /**
+     * Sets the Previous Shooter Pose
+     * @param previousShooterPose ShooterPos
+     */
     public void setPreviousShooterPose(ShooterPos previousShooterPose) {
         this.previousShooterPose = previousShooterPose;
     }
@@ -258,7 +376,7 @@ import frc.robot.util.TimeOutTimer;
 
                 //Check if ready to run
                 if(!isFinished()) {
-                    //Timer Is In Seconds (Using Special TimeOutTimer Class to add time), This avoids having to wait until timer is finished
+                    //Timer Is In Seconds (Using Special TimeOutTimer Class to set time), This avoids having to wait until timer is finished
                     if(TimeOut.get() < 2){ //TODO Times Maybe Wrong, Test Timeouts
                         //(SQ:1)
 
@@ -341,6 +459,9 @@ import frc.robot.util.TimeOutTimer;
      }
 
 
+     /**
+      * Runs the Lift, Feed, and Launch Motors
+      */
      private void runMotors() {
         double liftValue = liftPID.calculate(getLiftPosition(), getLiftSet());
 
