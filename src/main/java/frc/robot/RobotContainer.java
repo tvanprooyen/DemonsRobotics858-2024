@@ -24,6 +24,7 @@ import frc.robot.subsystems.LiftLaunchSubsystem;
 import frc.robot.subsystems.LiftLaunchSubsystem.ShooterPos;
 import frc.robot.subsystems.IntakeSubsystem.IntakePos;
 import frc.robot.commands.ControlIntake;
+import frc.robot.commands.ControlLift;
 import frc.robot.commands.IntakeCommand;
 import frc.robot.commands.IntakeMotor;
 import frc.robot.commands.LaunchCMD;
@@ -89,13 +90,17 @@ public class RobotContainer {
     m_driverController1.a().whileTrue(new ControlIntake(intakeSubsystem, IntakePos.Intake));
     m_driverController1.b().whileTrue(new ControlIntake(intakeSubsystem, IntakePos.Store));
 
-    m_driverController1.x().whileTrue(new IntakeMotor(-0.5, intakeSubsystem));
+    //m_driverController1.x().whileTrue(new IntakeMotor(-0.5, intakeSubsystem));
 
     m_driverController1.rightBumper().whileTrue(new LaunchCMD(liftLaunchSubsystem, 0.8));
     m_driverController1.leftBumper().whileTrue(new LaunchCMD(liftLaunchSubsystem, 1, 0.8));
     
-    //m_driverController1.y().whileTrue(new LiftCMD(liftLaunchSubsystem, 50));
+    //m_driverController1.y().whileTrue(new LiftCMD(liftLaunchSubsystem, 55));
     //m_driverController1.x().whileTrue(new LiftCMD(liftLaunchSubsystem, 30));
+
+    m_driverController1.y().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Amp));
+    m_driverController1.x().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Speaker));
+    m_driverController1.start().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Store));
 
   }
 

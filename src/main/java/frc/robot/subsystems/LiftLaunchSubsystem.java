@@ -29,9 +29,9 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
      private AbsoluteEncoder liftEncoder;
      private double liftSet;
      private PIDController liftPID;
-     private SlewRateLimiter liftLimiter = new SlewRateLimiter(1);
+     private SlewRateLimiter liftLimiter = new SlewRateLimiter(0.25);
      private ShooterPos shooterPos;
-     private Timer speakerTimer, ampTimer;
+     private Timer speakerTimer, ampTimer, TimeOut, feedTimer; //Set New Timers in Class
 
     // launch variables don't change
      private final CANSparkMax mLaunch1 = new CANSparkMax(23, MotorType.kBrushless);
@@ -65,6 +65,15 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
          this.ampTimer = new Timer();
          this.speakerTimer = new Timer();
 
+         this.TimeOut = new Timer();
+
+         this.feedTimer = new Timer();
+
+        SmartDashboard.putNumber("LiftEncoder", getLiftPosition());
+        SmartDashboard.putNumber("lift encoder", getLiftSet());
+        //SmartDashboard.putNumber("LiftPID", liftValue);
+        SmartDashboard.putNumber("Shooter Timer", speakerTimer.get());
+
      }
 
 
@@ -92,21 +101,35 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
         this.shooterPos = SHOOTERPOS;
      }
 
+     /**
+      * Gets the Current Shooter Pose
+      * @return ShooterPos
+      */
      public ShooterPos getShooterPose(){
         return this.shooterPos;
      }
 
-     //launch things
+     /**
+      * Sets the Launch Speed
+      * @param launchSpeed -1 thru 1 Motor Speed(ex: 0.5 = %50)
+      */
      public void setLaunchSpeed(double launchSpeed){
          this.launchSpeed = launchSpeed;
      }
 
+     /**
+      * Gets the current launch speed
+      * @return -1 thru 1 Motor Speed(ex: 0.5 = %50)
+      */
      private double getLaunchSpeed(){
          return this.launchSpeed;
      }
 
 
-     //feed things
+     /**
+      * Sets the Feed Speed
+      * @param feedSpeed -1 thru 1 Motor Speed(ex: 0.5 = %50)
+      */
      public void setFeedSpeed(double feedSpeed){
          this.feedSpeed = feedSpeed;
      }
@@ -115,89 +138,125 @@ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
          return this.feedSpeed;
      }
 
+     /* public double getSpeakerTimer(){
+        return this.speakerTimer.get();
+     } */ //No need for this
+
+    private double getIsRunningTol() {
+        return 3;
+    }
+
+    public boolean isRunning() {
+        double tolerance = getIsRunningTol(); //In Deg Angle
+        return isRunning(tolerance, true);
+    }
+
+    public boolean isRunning(boolean CheckMotors) {
+        double tolerance = getIsRunningTol(); //In Deg Angle
+        return isRunning(tolerance, CheckMotors);
+    }
+
+    public boolean isRunning(double tolerance) {
+        return isRunning(tolerance, true);
+    }
+
+    public boolean isRunning(double tolerance, boolean CheckMotors) {
+        boolean running = liftEncoder.getVelocity() < 0.01 && 
+        (
+            getLiftSet() + tolerance > getLiftPosition() && 
+            getLiftSet() - tolerance < getLiftPosition()
+        );
+
+        if(CheckMotors) {
+            running = running  &&
+            (
+                getLaunchSpeed() == 0 &&
+                getFeedSpeed() == 0
+            );
+        }
+
+        return running;
+    }
+
      @Override
      public void periodic(){
-       
-        double liftValue = liftPID.calculate(getLiftPosition(), getLiftSet());
-        double ShooterSet = 0;
-        double tempFeedSpeed = getFeedSpeed();
-        double tempLaunchSpeed = getLaunchSpeed();
 
-        SmartDashboard.putNumber("LiftEncoder", getLiftPosition());
-        SmartDashboard.putNumber("lift encoder", getLiftSet());
-        SmartDashboard.putNumber("LiftPID", liftValue);
+        /* 
+            Place Sequences Here
+            Use Only Get and Set Methods
+        */
+        
+
+        switch (getShooterPose()) {
+            case Store:
+                //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
+                //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
+
+                double liftAngle = 50;
+                //double intakeAngle = 40; // the current value is wrong //NO NEED FOR THIS ;)
+
+                if(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1) {
+                    //(SQ:1)
+                    setLaunchSpeed(0);
+                    setFeedSpeed(0);
+                    liftSet(liftAngle);
+                } else if(intakeSubsystem.getIntakePose() != IntakePos.Store) { //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
+                    //(SQ:2)
+                    intakeSubsystem.setIntakePose(IntakePos.Store);
+                }
+                
+                break;
+
+            case Amp:
+                 liftAngle = 50; // TODO the current value is wrong
+                 double shooterVel = 0.8; // TODO the current value is wrong
+                 double FeedSpeed = 0.5; // TODO the current value is wrong
+
+                if(intakeSubsystem.getIntakePose() != IntakePos.Amp) {
+                    intakeSubsystem.setIntakePose(IntakePos.Amp);
+                } else if(!intakeSubsystem.isRunning() && getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1){
+                    liftSet(liftAngle);
+
+                } else if(getLaunchSpeed() < shooterVel || TimeOut.get() < 60){
+                    if(TimeOut.get() == 0){
+                        TimeOut.start();
+                    }
+                    setLaunchSpeed(shooterVel);
+
+                } if(feedTimer.get() < 3){
+                    if(feedTimer.get() == 0){
+                        feedTimer.start();
+                    }
+                    setFeedSpeed(FeedSpeed);
+                }
+
+               break;
+            case Speaker:
+
+               break;
+        
+            default:
+                break;
+        }
+
+        //Then Run Motors
+        runMotors();
+     }
+
+
+     private void runMotors() {
+        double liftValue = liftPID.calculate(getLiftPosition(), getLiftSet());
 
         liftValue = MathUtil.clamp(liftValue, -0.4, 0.4);
 
-         /*if( getLiftPosition() > 60 || getLiftPosition() < 0 ){
+         if( getLiftPosition() > 60 || getLiftPosition() < 0 ){
              liftValue = 0;
          }
-        mLift2.set(liftLimiter.calculate(liftValue));*/
+        mLift2.set(liftLimiter.calculate(liftValue));
 
-        if(getLaunchSpeed() == 0){
-            //Amp Sequence
-            if(getLiftSet() == 70 && ampTimer.get() == 0){
-                ampTimer.start();
-                intakeSubsystem.setIntakePose(IntakePos.Amp);
-            }
-
-            if(ampTimer.get() > 8){
-                ampTimer.stop();
-                ampTimer.reset();
-            }else
-            if(ampTimer.get() > 7){
-                tempFeedSpeed = 0;
-                setShooterPose(ShooterPos.Store);
-                intakeSubsystem.setIntakePose(IntakePos.Store);
-            }else
-            if(ampTimer.get() > 6){
-                tempFeedSpeed = 0.8;
-            }else
-            if(ampTimer.get() > 2){
-                setShooterPose(ShooterPos.Amp);
-            }
-
-            //Speaker Sequence
-            if(getLiftSet() == 50 && speakerTimer.get() == 0){
-                speakerTimer.start();
-                intakeSubsystem.setIntakePose(IntakePos.Speaker);
-            }
-
-            if(speakerTimer.get() > 8){
-                speakerTimer.stop();
-                speakerTimer.reset();
-            }else
-            if(speakerTimer.get() > 7){
-                tempFeedSpeed = 0;
-                setShooterPose(ShooterPos.Store);
-                intakeSubsystem.setIntakePose(IntakePos.Store);
-            }else
-            if(speakerTimer.get() > 6){
-                tempFeedSpeed = 0.8;
-            }else
-            if(speakerTimer.get() > 2){
-                setShooterPose(ShooterPos.Speaker);
-            }
-
-            
-        switch(getShooterPose()){
-                case Store:
-            ShooterSet = 20;
-            tempLaunchSpeed = 0;
-            break;
-                case Amp:
-            ShooterSet = 70;
-            tempLaunchSpeed = 0.6;
-            break;
-                case Speaker:
-            ShooterSet = 50;
-            tempLaunchSpeed = 0.8;
-            break;
-        }
-    }
         mLaunch1.set(launchLimiter.calculate(getLaunchSpeed()));
-        mLaunch2.set(launchLimiter.calculate(-getLaunchSpeed())); 
-        
+        mLaunch2.set(-launchLimiter.calculate(getLaunchSpeed()));
+
         mFeed1.set(-getFeedSpeed());
         mFeed2.set(getFeedSpeed());
      }

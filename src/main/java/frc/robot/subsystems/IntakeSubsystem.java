@@ -43,7 +43,7 @@ public class IntakeSubsystem extends SubsystemBase {
         // deploy settings
         DeployMotor = new CANSparkMax(30, MotorType.kBrushless);
         DeployEncoder = DeployMotor.getAbsoluteEncoder(Type.kDutyCycle);
-        DeployPID = new PIDController(0.008, 0.0001, 0.002);
+        DeployPID = new PIDController(0.008 , 0.0001, 0.002);
         DeployPID.enableContinuousInput(0, 360);
         // this.DeploySet = getDeployEncoder();
         this.DeploySet = DeployEncoder.getPosition() * 360;
@@ -101,6 +101,22 @@ public class IntakeSubsystem extends SubsystemBase {
 
     public IntakePos getIntakePose() {
         return this.intakePos;
+    }
+
+    public boolean isRunning() {
+        double tolerance = 3; //In Deg Angle
+        return isRunning(tolerance);
+    }
+
+    public boolean isRunning(double tolerance) {
+        return DeployEncoder.getVelocity() < 0.01 && 
+        (
+            getDeploySet() + tolerance > getDeployEncoder() && 
+            getDeploySet() - tolerance < getDeployEncoder()
+        ) &&
+        (
+            getIntakeSpeed() == 0
+        ); //TODO CHECK MATH AND COMPARE
     }
 
     @Override
