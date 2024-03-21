@@ -6,17 +6,17 @@ import frc.robot.subsystems.IntakeSubsystem;
 public class IntakeCommand extends Command {
     
     private final IntakeSubsystem intakeSubsystem;
-    private double DeploySet;
+    private double IntakeDeploy;
 
-    public IntakeCommand(IntakeSubsystem intakeSubsystem, double DeploySet){
+    public IntakeCommand(IntakeSubsystem intakeSubsystem, double IntakeDeploy){
          this.intakeSubsystem = intakeSubsystem;
-         this.DeploySet = DeploySet;
+         this.IntakeDeploy = IntakeDeploy;
 
     }
 
     @Override
     public void execute(){
-        intakeSubsystem.setDeploySet(DeploySet);
+        intakeSubsystem.setDeploySet(IntakeDeploy);
 
     }
     

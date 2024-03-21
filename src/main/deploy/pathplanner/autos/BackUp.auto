@@ -8,12 +8,12 @@
         {
           "type": "path",
           "data": {
-            "pathName": "New Path"
+            "pathName": "Back up"
           }
         }
       ]
     }
   },
-  "folder": "Tylers Autos",
+  "folder": null,
   "choreoAuto": false
 }

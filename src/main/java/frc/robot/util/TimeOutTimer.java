@@ -23,4 +23,9 @@ public class TimeOutTimer extends Timer {
     public double get() {
         return super.get() + this.setTime;
     }
+    
+    public void zero() {
+        this.setTime = 0;
+        reset();
+    }
 }

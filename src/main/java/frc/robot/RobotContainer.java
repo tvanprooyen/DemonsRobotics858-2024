@@ -17,18 +17,22 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
+import edu.wpi.first.wpilibj2.command.ParallelCommandGroup;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
-import frc.robot.subsystems.IntakeSubsystem;
 import frc.robot.subsystems.LiftLaunchSubsystem;
+import frc.robot.subsystems.Limelight;
+//import frc.robot.subsystems.Limelight;
 import frc.robot.subsystems.LiftLaunchSubsystem.ShooterPos;
-import frc.robot.subsystems.IntakeSubsystem.IntakePos;
-import frc.robot.commands.ControlIntake;
 import frc.robot.commands.ControlLift;
-import frc.robot.commands.IntakeCommand;
-import frc.robot.commands.IntakeMotor;
+ import frc.robot.commands.IntakeCommand;
+ import frc.robot.commands.IntakeMotor;
+ import frc.robot.subsystems.IntakeSubsystem;
+ import frc.robot.subsystems.IntakeSubsystem.IntakePos;
+ import frc.robot.commands.ControlIntake;
 import frc.robot.commands.LaunchCMD;
-import frc.robot.commands.LiftCMD;
+  // import frc.robot.commands.LiftCMD;
+import frc.robot.commands.LimelightAlign;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -40,6 +44,7 @@ public class RobotContainer {
   // The robot's subsystems and commands are defined here...
   // Create a new DrivetrainSubsystem
   private final DrivetrainSubsystem drivetrain = new DrivetrainSubsystem();
+  
 
   private final SendableChooser<Command> autoChooser;
 
@@ -51,6 +56,7 @@ public class RobotContainer {
 
   // Subsystems
   private final LiftLaunchSubsystem liftLaunchSubsystem = new LiftLaunchSubsystem();
+  private final Limelight limelightSubsystem = new Limelight();
   private final IntakeSubsystem intakeSubsystem = new IntakeSubsystem();
 
   // Create a new SlewRateLimiter with a maximum rate of 15
@@ -71,7 +77,8 @@ public class RobotContainer {
             () -> xLimiter.calculate(modifyAxis(m_driverController.getLeftY())), // Axes are flipped here on purpose
             () -> yLimiter.calculate(modifyAxis(m_driverController.getLeftX())),
             () -> rotLimiter.calculate(modifyAxis(m_driverController.getRightX())),
-            () -> m_driverController.getPOV()
+            () -> m_driverController.getPOV(),
+            () -> m_driverController.rightTrigger().getAsBoolean()
     )); 
     // Configure the trigger bindings
     configureBindings();
@@ -79,8 +86,10 @@ public class RobotContainer {
     // Configure Autos Created by PathPlanner
     configureAutos();
 
-    autoChooser = new SendableChooser<>();
+    autoChooser = AutoBuilder.buildAutoChooser();
     autoChooser.addOption("None", getAutonomousCommand());
+
+    SmartDashboard.putData(autoChooser);
   }
 
 
@@ -89,23 +98,41 @@ public class RobotContainer {
     m_driverController.start().whileTrue(new InstantCommand(drivetrain::zeroGyroscope));
 
     //Intake Control
-    //m_driverController1.a().onTrue(new IntakeCommand(intakeSubsystem, 30)).whileTrue(new IntakeMotor(0.30, intakeSubsystem));
-    //m_driverController1.b().onTrue(new IntakeCommand(intakeSubsystem, 100)).whileTrue(new IntakeMotor(0.30, intakeSubsystem));
+    // m_driverController1.a().onTrue(new IntakeCommand(intakeSubsystem, 30)).whileTrue(new IntakeMotor(0.30, intakeSubsystem));
+    // m_driverController1.b().onTrue(new IntakeCommand(intakeSubsystem, 100)).whileTrue(new IntakeMotor(0.30, intakeSubsystem));
 
     m_driverController1.a().whileTrue(new ControlIntake(intakeSubsystem, IntakePos.Intake));
     m_driverController1.b().whileTrue(new ControlIntake(intakeSubsystem, IntakePos.Store));
 
-    //m_driverController1.x().whileTrue(new IntakeMotor(-0.5, intakeSubsystem));
+    //m_driverController1.back().whileTrue(new IntakeMotor(-0.5, intakeSubsystem));
 
-    m_driverController1.rightBumper().whileTrue(new LaunchCMD(liftLaunchSubsystem, 0.8));
-    m_driverController1.leftBumper().whileTrue(new LaunchCMD(liftLaunchSubsystem, 1, 0.8));
+    //m_driverController1.rightBumper().whileTrue(new LaunchCMD(liftLaunchSubsystem, 0.8));
+    m_driverController1.rightBumper().whileTrue(new LaunchCMD(liftLaunchSubsystem, 0.4, 0.4));
+    m_driverController1.leftBumper().whileTrue(new LaunchCMD(liftLaunchSubsystem, -0.1, -0.1));
+    m_driverController1.povUp().whileTrue(new LaunchCMD(liftLaunchSubsystem, 0.8, 0.6));
     
     //m_driverController1.y().whileTrue(new LiftCMD(liftLaunchSubsystem, 55));
     //m_driverController1.x().whileTrue(new LiftCMD(liftLaunchSubsystem, 30));
 
-    m_driverController1.y().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Amp));
-    m_driverController1.x().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Speaker));
-    m_driverController1.start().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Store));
+    m_driverController1.x().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Amp));
+    m_driverController1.y().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Speaker));
+    //m_driverController1.start().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.Climb));
+
+    // Auto Aim Shooter Arm and shoot
+    m_driverController1.start().whileTrue(new ControlLift(liftLaunchSubsystem, ShooterPos.AlignWithLimelight));
+
+    // Auto Aim and Steer and shoot
+    m_driverController1.back().whileTrue(
+      new ParallelCommandGroup(
+        new ControlLift(liftLaunchSubsystem, ShooterPos.AlignWithLimelight),
+        new LimelightAlign(drivetrain, limelightSubsystem,  
+        () -> xLimiter.calculate(modifyAxis(m_driverController.getLeftY())),
+        () -> yLimiter.calculate(modifyAxis(m_driverController.getLeftX())), false)
+      )
+    );
+    
+
+    // m_driverController.rightTrigger().whileTrue(new LimelightAlign(drivetrain, limelightSubsystem));
 
   }
 
@@ -147,12 +174,18 @@ public class RobotContainer {
     NamedCommands.registerCommand("marker1", Commands.print("Passed marker 1"));
     NamedCommands.registerCommand("marker2", Commands.print("Passed marker 2"));
     NamedCommands.registerCommand("intakeup", Commands.print("Intake Up"));
-    NamedCommands.registerCommand("print hello", Commands.print("hello"));
+    NamedCommands.registerCommand("print hello", Commands.print("hello"));   
+    //NamedCommands.registerCommand("storeIntake", new ControlIntake(intakeSubsystem, IntakePos.Store));
+    //NamedCommands.registerCommand("intake",  Commands.runOnce(intakeSubsystem::AutoIntake, intakeSubsystem));
+    NamedCommands.registerCommand("shoot", Commands.runOnce(liftLaunchSubsystem::setShoot, liftLaunchSubsystem));
+    NamedCommands.registerCommand("stopshoot", Commands.runOnce(liftLaunchSubsystem::setStore, liftLaunchSubsystem));
+    NamedCommands.registerCommand("rotaterobot", Commands.runOnce(drivetrain::rotate180, drivetrain));
 
 
     // Add a button to run the example auto to SmartDashboard, this will also be in the auto chooser built above
     /* "Example Auto" is file to be deployed on the RoboRIO, This is created by using the PathPlanner Software */
-    SmartDashboard.putData("Auto 3", new PathPlannerAuto("Auto 3"));
+    //SmartDashboard.putData("New New Auto", new PathPlannerAuto("New New Auto"));
+    //SmartDashboard.putData("Auto Test", new PathPlannerAuto("Grab and Launch 1"));
 
     /* See more ways to program paths using PathPanner's example located on GitHub */
     /* Although most of the commands and paths are setup here, we also need to make sure that the DrivetrainSubsystem can handle PathPlanner */
@@ -166,6 +199,6 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous 
-    return autoChooser.getSelected();
+     return autoChooser.getSelected();//return new PathPlannerAuto("Grab and Launch 1");
   }
 }

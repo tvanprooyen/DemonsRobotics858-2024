@@ -3,29 +3,29 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 1.3509924162706242,
-        "y": 5.570593998325182
+        "x": 1.4,
+        "y": 7.0
       },
       "prevControl": null,
       "nextControl": {
-        "x": 1.7321383214195003,
-        "y": 5.204107551072246
+        "x": 2.399999999999997,
+        "y": 7.0
       },
       "isLocked": false,
-      "linkedName": "score"
+      "linkedName": "start1"
     },
     {
       "anchor": {
-        "x": 2.289197721252586,
-        "y": 4.075329293515731
+        "x": 2.2985634860158615,
+        "y": 5.5
       },
       "prevControl": {
-        "x": 1.5122464530643351,
-        "y": 3.914075256721943
+        "x": 1.298563486015862,
+        "y": 5.5
       },
       "nextControl": null,
       "isLocked": false,
-      "linkedName": "game piece 2"
+      "linkedName": "note2"
     }
   ],
   "rotationTargets": [],
@@ -39,14 +39,14 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 0,
+    "rotation": 178.6350747068914,
     "rotateFast": false
   },
   "reversed": false,
-  "folder": "Tylers Paths",
+  "folder": null,
   "previewStartingState": {
-    "rotation": 0,
+    "rotation": 179.09793444691078,
     "velocity": 0
   },
-  "useDefaultConstraints": false
+  "useDefaultConstraints": true
 }

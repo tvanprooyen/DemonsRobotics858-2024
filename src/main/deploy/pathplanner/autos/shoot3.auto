@@ -1,6 +1,12 @@
 {
   "version": 1.0,
-  "startingPose": null,
+  "startingPose": {
+    "position": {
+      "x": 1.1013744249710726,
+      "y": 2.0950808568283796
+    },
+    "rotation": 0
+  },
   "command": {
     "type": "sequential",
     "data": {
@@ -8,24 +14,18 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Pickup 2"
-          }
-        },
-        {
-          "type": "wait",
-          "data": {
-            "waitTime": 1.0
+            "pathName": "Shoot"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "Score 2"
+            "pathName": "Back up"
           }
         }
       ]
     }
   },
-  "folder": "Tylers Autos",
+  "folder": null,
   "choreoAuto": false
 }

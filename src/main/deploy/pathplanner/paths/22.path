@@ -3,41 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 1.3509924162706242,
-        "y": 5.570593998325182
+        "x": 0.8020771597098753,
+        "y": 4.076143707842971
       },
       "prevControl": null,
       "nextControl": {
-        "x": 2.350992416270624,
-        "y": 5.570593998325182
-      },
-      "isLocked": false,
-      "linkedName": "score"
-    },
-    {
-      "anchor": {
-        "x": 5.5875757465800655,
-        "y": 6.347545266519105
-      },
-      "prevControl": {
-        "x": 4.4294785732428625,
-        "y": 6.288907434957728
-      },
-      "nextControl": {
-        "x": 6.512145110835365,
-        "y": 6.394358905215576
+        "x": 1.8020771597098717,
+        "y": 4.076143707842971
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 7.639899851228273,
-        "y": 5.790485866686019
+        "x": 2.141788728021901,
+        "y": 5.487116529788615
       },
       "prevControl": {
-        "x": 6.701694546246235,
-        "y": 5.9663993613701525
+        "x": 1.141788728021901,
+        "y": 5.487116529788615
       },
       "nextControl": null,
       "isLocked": false,
@@ -59,7 +43,7 @@
     "rotateFast": false
   },
   "reversed": false,
-  "folder": "Tylers Paths",
+  "folder": null,
   "previewStartingState": {
     "rotation": 0,
     "velocity": 0
