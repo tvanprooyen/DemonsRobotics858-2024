@@ -2,8 +2,8 @@
   "version": 1.0,
   "startingPose": {
     "position": {
-      "x": 1.3656518741608918,
-      "y": 5.585253456221199
+      "x": 1.29235458470917,
+      "y": 5.55593454044051
     },
     "rotation": 0
   },
@@ -20,7 +20,7 @@
         {
           "type": "wait",
           "data": {
-            "waitTime": 1.0
+            "waitTime": 0.5
           }
         },
         {
@@ -30,45 +30,53 @@
           }
         },
         {
-          "type": "wait",
+          "type": "parallel",
           "data": {
-            "waitTime": 1.0
-          }
-        },
-        {
-          "type": "path",
-          "data": {
-            "pathName": "Back up"
-          }
-        },
-        {
-          "type": "wait",
-          "data": {
-            "waitTime": 1.0
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "intake"
+            "commands": [
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "Back up"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "IntakeDeploy"
+                }
+              }
+            ]
           }
         },
         {
           "type": "wait",
           "data": {
-            "waitTime": 1.0
+            "waitTime": 0.5
           }
         },
         {
-          "type": "path",
+          "type": "parallel",
           "data": {
-            "pathName": "Move Forward"
+            "commands": [
+              {
+                "type": "named",
+                "data": {
+                  "name": "IntakeHandoff"
+                }
+              },
+              {
+                "type": "path",
+                "data": {
+                  "pathName": "Move Forward"
+                }
+              }
+            ]
           }
         },
         {
           "type": "wait",
           "data": {
-            "waitTime": 1.0
+            "waitTime": 1.5
           }
         },
         {
@@ -87,6 +95,12 @@
           "type": "named",
           "data": {
             "name": "stopshoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "gyroset"
           }
         }
       ]

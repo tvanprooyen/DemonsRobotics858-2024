@@ -2,6 +2,7 @@ package frc.robot.commands;
 
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.DrivetrainSubsystem;
 
@@ -10,6 +11,8 @@ import java.util.function.DoubleSupplier;
 import java.util.function.IntSupplier;
 
 import com.limelight.LimelightHelpers;
+import com.limelight.LimelightHelpers.LimelightResults;
+import com.limelight.LimelightHelpers.LimelightTarget_Fiducial;
 
 public class DriveCommand extends Command {
     private final DrivetrainSubsystem drivetrain;
@@ -18,6 +21,7 @@ public class DriveCommand extends Command {
     private final DoubleSupplier rotationSupplier;
     private final IntSupplier povSupplier;
     private final BooleanSupplier trackNote;
+    private final BooleanSupplier trackSpeaker;
 
     public DriveCommand(
             DrivetrainSubsystem drivetrain,
@@ -25,7 +29,8 @@ public class DriveCommand extends Command {
             DoubleSupplier translationYSupplier,
             DoubleSupplier rotationSupplier,
             IntSupplier povSupplier,
-            BooleanSupplier trackNote
+            BooleanSupplier trackNote,
+            BooleanSupplier trackSpeaker
     ) {
         this.drivetrain = drivetrain;
         this.translationXSupplier = translationXSupplier;
@@ -33,6 +38,7 @@ public class DriveCommand extends Command {
         this.rotationSupplier = rotationSupplier;
         this.povSupplier = povSupplier;
         this.trackNote = trackNote;
+        this.trackSpeaker = trackSpeaker;
 
         addRequirements(drivetrain);
     }
@@ -43,7 +49,9 @@ public class DriveCommand extends Command {
         double translationYPercent = translationYSupplier.getAsDouble();
         double rotationPercent = rotationSupplier.getAsDouble();
         int povPos = povSupplier.getAsInt();
-        boolean isTracking = trackNote.getAsBoolean();
+        boolean isTrackingNote = trackNote.getAsBoolean();
+        boolean isTrackingSpeaker = trackSpeaker.getAsBoolean();
+
 
         //Allows the Robot to angle its self if the POV is pressed and with in the deadband of the axis
         if(rotationPercent < 0.05 && rotationPercent > -0.05) {
@@ -66,51 +74,68 @@ public class DriveCommand extends Command {
             }
         }
 
-        double rotationalError = -LimelightHelpers.getTX("");
-        double rotationAdjust = -0.05 * rotationalError;
+        double rotationalError = 0;
+        double rotationAdjust = 0;
 
-        double translationalError = LimelightHelpers.getTY("");
-        double translationalAdjust = 0.06 * translationalError;
+        double translationalError = 0;
+        double translationalAdjust = 0;
 
         double robotAngle = drivetrain.getRotationInDeg();
-        
-        double xAdjust = 0;
-        double yAdjust = 0;
-        double rotAdjust = 0;
 
-        if(isTracking) {
-            xAdjust = translationalAdjust * Math.cos(Math.toRadians(robotAngle)) +  translationXPercent * DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND;
-            yAdjust = translationalAdjust * Math.sin(Math.toRadians(robotAngle)) + translationYPercent *  DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND;
-            rotAdjust = rotationAdjust;
+        Rotation2d autoRotate = drivetrain.getRotation();
 
+        //Base
+        translationXPercent = (translationXPercent * DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND);
+        translationYPercent = (translationYPercent * DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND);
+        rotationPercent = (rotationPercent * DrivetrainSubsystem.MAX_ANGULAR_VELOCITY_RADIANS_PER_SECOND);
 
-            /* drivetrain.drive(
-                ChassisSpeeds.fromFieldRelativeSpeeds(
-                        translationXPercent * DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND,
-                        translationYPercent * DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND,
-                        rotAdjust + (rotationPercent * DrivetrainSubsystem.MAX_ANGULAR_VELOCITY_RADIANS_PER_SECOND),
-                        drivetrain.getRotation()
-                )
-            ); */
+        if(isTrackingNote) {
+            rotationalError = -LimelightHelpers.getTX("limelight");
 
-            drivetrain.drive(
-                ChassisSpeeds.fromRobotRelativeSpeeds(
-                        -translationalAdjust,
-                        0.0,
-                        rotAdjust + (rotationPercent * DrivetrainSubsystem.MAX_ANGULAR_VELOCITY_RADIANS_PER_SECOND),
-                        new Rotation2d()
-                )
-            );
-        } else {
-            drivetrain.drive(
-                ChassisSpeeds.fromFieldRelativeSpeeds(
-                        translationXPercent * DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND,
-                        translationYPercent * DrivetrainSubsystem.MAX_VELOCITY_METERS_PER_SECOND,
-                        rotationPercent * DrivetrainSubsystem.MAX_ANGULAR_VELOCITY_RADIANS_PER_SECOND,
-                        drivetrain.getRotation()
-                )
-            );
+            rotationAdjust = -0.05 * rotationalError;
+
+            translationalError = LimelightHelpers.getTY("limelight");
+
+            translationalAdjust = 0.04 * translationalError;
+
+            if(robotAngle < 0){
+                robotAngle = 360 + robotAngle;
+            }
+
+            //Track Note Profile
+            translationXPercent += (translationalAdjust * Math.cos(Math.toRadians(robotAngle)));
+            translationYPercent += (translationalAdjust * Math.sin(Math.toRadians(robotAngle)));
+            rotationPercent += rotationAdjust;
+            //autoRotate = new Rotation2d();
+
+        } else if(isTrackingSpeaker) {
+            
+            LimelightResults result = LimelightHelpers.getLatestResults("limelight-front");
+  
+            if(LimelightHelpers.getTV("limelight-front")) {
+                for( LimelightTarget_Fiducial target : result.targetingResults.targets_Fiducials) {
+                    if( target.fiducialID == 4 || target.fiducialID == 7){
+                        rotationalError = -target.tx;
+                    }
+                }
+            }
+
+            rotationAdjust = -0.08 * rotationalError;
+
+            translationalError = LimelightHelpers.getTY("limelight-front");
+
+            //Track Note Profile
+            rotationPercent += rotationAdjust;
         }
+
+        drivetrain.drive(
+            ChassisSpeeds.fromFieldRelativeSpeeds(
+                    translationXPercent,
+                    translationYPercent,
+                    rotationPercent,
+                    autoRotate
+            )
+        );
     }
 
     @Override

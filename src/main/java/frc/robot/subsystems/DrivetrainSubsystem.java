@@ -1,8 +1,17 @@
 package frc.robot.subsystems;
 
-import com.ctre.phoenix6.StatusSignal;
+import java.util.NoSuchElementException;
+import java.util.Optional;
+
+import javax.sound.sampled.SourceDataLine;
+
 import com.ctre.phoenix6.hardware.Pigeon2;
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.commands.PathfindHolonomic;
+import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.path.PathPlannerPath;
+import com.pathplanner.lib.path.PathPlannerTrajectory;
+import com.pathplanner.lib.util.PPLibTelemetry;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import com.swervedrivespecialties.swervelib.MkSwerveModuleBuilder;
 import com.swervedrivespecialties.swervelib.MotorType;
@@ -21,6 +30,7 @@ import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInLayouts;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
@@ -64,9 +74,12 @@ public class DrivetrainSubsystem extends SubsystemBase {
     private Field2d field2 = new Field2d();
 
     private SwerveDrivePoseEstimator swerveDrivePoseEstimator;
+    private boolean trackNote;
+    private boolean usePathPlanner;
 
     public DrivetrainSubsystem() {
         ShuffleboardTab shuffleboardTab = Shuffleboard.getTab("Drivetrain");
+
 
         // Create the swerve modules
         frontLeftModule = new MkSwerveModuleBuilder()
@@ -122,12 +135,14 @@ public class DrivetrainSubsystem extends SubsystemBase {
         // Zero the swerve Gyro
         gyroscope.setYaw(0.0);
 
-        LimelightHelpers.setPipelineIndex("", 1);
+        /* LimelightHelpers.setPipelineIndex("", 1); */
 
          //Get Latest Results from Limelight
         LimelightHelpers.LimelightResults llresults = LimelightHelpers.getLatestResults("");
 
         Pose2d initialPose = new Pose2d(0.0, 0.0, new Rotation2d(0.0));
+
+        trackNote = false;
 
         //Test if Limelight has a target
         if(LimelightHelpers.getTV("")) {
@@ -170,6 +185,7 @@ public class DrivetrainSubsystem extends SubsystemBase {
 
         RotateSet = 0;
         this.rotateLock = false;
+        this.usePathPlanner = false;
 
         //PathPlanner
         // Configure AutoBuilder
@@ -177,18 +193,24 @@ public class DrivetrainSubsystem extends SubsystemBase {
         this::robotPose, 
         this::resetOdometry, 
         this::getSpeeds, 
-        this::driveRobotRelative, 
+        this::driveAuto, 
         PathPlannerConstants.pathFollowerConfig,
         () -> {
             // Boolean supplier that controls when the path will be mirrored for the red alliance
             // This will flip the path being followed to the red side of the field.
             // THE ORIGIN WILL REMAIN ON THE BLUE SIDE
-
-            var alliance = DriverStation.getAlliance();
-            if (alliance.isPresent()) {
-                return alliance.get() == DriverStation.Alliance.Red;
-            }
             return false;
+            /* try{
+                return DriverStation.getAlliance().get() == DriverStation.Alliance.Red ? true : false;
+            }catch(NoSuchElementException e){
+                System.out.println(e);
+                return false; //Default to blue
+            } */
+            // var alliance = DriverStation.getAlliance();
+            // if (alliance.isPresent()) {
+            //     return alliance.get() == DriverStation.Alliance.Red;
+            // }
+            // return false;
         },
         this
         );
@@ -197,7 +219,9 @@ public class DrivetrainSubsystem extends SubsystemBase {
         PathPlannerLogging.setLogActivePathCallback((poses) -> field.getObject("path").setPoses(poses));
 
         SmartDashboard.putData("Field", field);
-        SmartDashboard.putData("Field2", field2);
+        //SmartDashboard.putData("Field2", field2);
+
+        //PPHolonomicDriveController.setRotationTargetOverride(this::getRotationTargetOverride);
 
     }
 
@@ -214,10 +238,23 @@ public class DrivetrainSubsystem extends SubsystemBase {
         );
     }
 
+    public void zeroGyroscope180() {
+        odometry.resetPosition(
+            Rotation2d.fromDegrees(getGyroYaw(/*true*/)), 
+            new SwerveModulePosition[] {
+                frontLeftModule.getPosition(),
+                frontRightModule.getPosition(),
+                backLeftModule.getPosition(),
+                backRightModule.getPosition()
+            }, 
+            new Pose2d(odometry.getPoseMeters().getTranslation(), Rotation2d.fromDegrees(180.0))
+        );
+    }
+
     public double getRotationInDeg() {
         return getRotation().getDegrees();
     }
-
+    
     public Pose2d robotPose() {
         return odometry.getPoseMeters();  //new Pose2d(odometry.getPoseMeters().getTranslation(), Rotation2d.fromDegrees(0.0));
     }
@@ -262,6 +299,48 @@ public class DrivetrainSubsystem extends SubsystemBase {
         this.chassisSpeeds = chassisSpeeds;
     }
 
+    public void trackNote(){
+        this.trackNote = true;
+    }
+
+    public void dontTrackNote(){
+        this.trackNote = false;
+    }
+
+    public void driveAuto(ChassisSpeeds chassisSpeeds) {
+
+    
+        double rotationPercent = -rotatePIDCalculation();
+
+
+        
+
+        if( this.trackNote ){
+            rotationPercent = -LimelightHelpers.getTX("limelight");
+
+            rotationPercent = -0.05 * rotationPercent;
+        }
+        
+        if(rotationPercent > 0.2) {
+            rotationPercent = 0.2;
+        } else if(rotationPercent < -0.2) {
+            rotationPercent = -0.2;
+        }
+
+        double TempRotation = rotationPercent * MAX_ANGULAR_VELOCITY_RADIANS_PER_SECOND;
+
+        if(usePathPlanner) {
+            TempRotation = -chassisSpeeds.omegaRadiansPerSecond;
+        }
+
+        this.chassisSpeeds = ChassisSpeeds.fromFieldRelativeSpeeds(
+            chassisSpeeds.vxMetersPerSecond,
+            chassisSpeeds.vyMetersPerSecond,
+            TempRotation,
+            getRotation()
+        );
+    }
+
     public ChassisSpeeds getSpeeds() {
         return this.chassisSpeeds;
     }
@@ -293,8 +372,9 @@ public class DrivetrainSubsystem extends SubsystemBase {
     }
 
     public void resetOdometry(Pose2d pose) {
+        /* pose.getRotation(); */
         odometry.resetPosition(
-            Rotation2d.fromDegrees(getGyroYaw(/*true*/)), 
+            pose.getRotation(),//Rotation2d.fromDegrees(getGyroYaw(/*true*/)), 
             new SwerveModulePosition[] {
                 frontLeftModule.getPosition(),
                 frontRightModule.getPosition(),
@@ -308,6 +388,58 @@ public class DrivetrainSubsystem extends SubsystemBase {
     public void rotate180() {
         setPIDRotateValue(360 - 180);
         setRotateLock(true);
+    }
+
+    public void holdFast() {
+        /* if(DriverStation.getAlliance().get() == DriverStation.Alliance.Red) {
+            setPIDRotateValue(180);
+        } else {
+            setPIDRotateValue(0);
+        } */
+        setPIDRotateValue(0);
+        setRotateLock(true);
+    }
+
+    public void setFastAngle(double angle){
+        setPIDRotateValue(angle);
+        setRotateLock(true);
+    }
+
+    public void setSourceSideAngle(){
+        setPIDRotateValue(60);
+        setRotateLock(true);
+    }
+
+    public void setAmpSideAngle(){
+        setPIDRotateValue(300);
+        setRotateLock(true);
+    }
+
+    public Rotation2d getForwardRotation2d(){
+        return new Rotation2d(0);
+    }
+
+    // public void toggleUsePathPlanner(){
+    //     this.usePathPlanner = !this.usePathPlanner;
+    // }
+
+    public void usePathPlanner(){
+        this.usePathPlanner = true;
+    }
+    public void noPathPlanner(){
+        this.usePathPlanner = false;
+    }
+
+    /* public Optional<Rotation2d> getRotationTargetOverride(){
+        if( true){
+            return Optional.of(new Rotation2d(RotatePID.calculate(getRotation().getDegrees(), RotateSet )));
+        } else {
+            return Optional.empty();
+        }
+    } */
+
+    public void setRotateZero() {
+        setPIDRotateValue(0);
     }
 
     /* public void drivetonote() {
@@ -347,30 +479,37 @@ public class DrivetrainSubsystem extends SubsystemBase {
             backRightModule.getPosition()
         });
 
-        swerveDrivePoseEstimator.update(
+        /* swerveDrivePoseEstimator.update(
         Rotation2d.fromDegrees(getGyroYaw()), 
         new SwerveModulePosition[] {
             frontLeftModule.getPosition(),
             frontRightModule.getPosition(),
             backLeftModule.getPosition(),
             backRightModule.getPosition()
-        });
+        }); */
 
         //Get Latest Results from Limelight
-        LimelightHelpers.LimelightResults llresults = LimelightHelpers.getLatestResults("");
+        /* LimelightHelpers.LimelightResults llresults = LimelightHelpers.getLatestResults("limelight-front");
 
         //Test if Limelight has a target
-        if(LimelightHelpers.getTV("")) {
+        if(LimelightHelpers.getTV("limelight-front")) {
             //update the pose estimator with the vision measurement
             swerveDrivePoseEstimator.addVisionMeasurement(llresults.targetingResults.getBotPose2d(), llresults.targetingResults.timestamp_RIOFPGA_capture);
         }
 
-        field2.setRobotPose(swerveDrivePoseEstimator.getEstimatedPosition());
+        field2.setRobotPose(swerveDrivePoseEstimator.getEstimatedPosition()); */
 
-
+        SmartDashboard.putNumber("robot angle", getRotationInDeg());
         field.setRobotPose(robotPose());
 
         setModuleStates(robotModuleStates());
+
+        var alliance = DriverStation.getAlliance();
+            if (alliance.isPresent()) {
+                SmartDashboard.putString("alliance",alliance.get().toString()); 
+            }
+
+
     }
 
     public void setModuleStates(SwerveModuleState[] states) {

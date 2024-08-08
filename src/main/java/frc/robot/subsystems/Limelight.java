@@ -12,10 +12,15 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class Limelight extends SubsystemBase {
   private NetworkTableEntry tx,ty,ta;
-  private NetworkTable table;
+  private NetworkTable table, aprilTag;
 
   public Limelight() {
     table = NetworkTableInstance.getDefault().getTable("limelight");
+    tx = table.getEntry("tx");
+    ty = table.getEntry("ty");
+    ta = table.getEntry("ta");
+
+    aprilTag = NetworkTableInstance.getDefault().getTable("limelight-front");
     tx = table.getEntry("tx");
     ty = table.getEntry("ty");
     ta = table.getEntry("ta");

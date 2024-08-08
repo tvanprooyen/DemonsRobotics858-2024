@@ -1,0 +1,52 @@
+{
+  "version": 1.0,
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 15.497369280452848,
+        "y": 6.596756050654959
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 14.573823433354903,
+        "y": 6.772669545339995
+      },
+      "isLocked": false,
+      "linkedName": "red amp start"
+    },
+    {
+      "anchor": {
+        "x": 13.69425595993424,
+        "y": 7.007220871585503
+      },
+      "prevControl": {
+        "x": 14.368591022890081,
+        "y": 6.8459668347917155
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [],
+  "constraintZones": [],
+  "eventMarkers": [],
+  "globalConstraints": {
+    "maxVelocity": 4.15,
+    "maxAcceleration": 4.15,
+    "maxAngularVelocity": 1000.0,
+    "maxAngularAcceleration": 800.0
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 180.0,
+    "rotateFast": true
+  },
+  "reversed": false,
+  "folder": "JIC Paths",
+  "previewStartingState": {
+    "rotation": 144.16234704572156,
+    "velocity": 0
+  },
+  "useDefaultConstraints": true
+}

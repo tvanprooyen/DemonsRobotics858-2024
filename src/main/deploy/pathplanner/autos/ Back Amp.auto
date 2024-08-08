@@ -1,0 +1,25 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 0.9588519177038357,
+      "y": 6.541783083566167
+    },
+    "rotation": 60.572543596810284
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Backup Amp Side"
+          }
+        }
+      ]
+    }
+  },
+  "folder": "State Autos",
+  "choreoAuto": false
+}

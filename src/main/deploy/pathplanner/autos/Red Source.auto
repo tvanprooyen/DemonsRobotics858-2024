@@ -1,0 +1,37 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 15.70260169091811,
+      "y": 4.427156282878975
+    },
+    "rotation": -128.6598082544443
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "shoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "holdFast"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Red Source Back"
+          }
+        }
+      ]
+    }
+  },
+  "folder": "JIC Autos",
+  "choreoAuto": false
+}

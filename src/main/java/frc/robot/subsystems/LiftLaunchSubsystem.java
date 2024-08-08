@@ -27,6 +27,7 @@ import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardLayout;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants.LaunchConstants;
 import frc.robot.subsystems.IntakeSubsystem.IntakePos;
 import frc.robot.util.TimeOutTimer;
 
@@ -44,7 +45,7 @@ import frc.robot.util.TimeOutTimer;
      private final CANSparkMax mLift1 = new CANSparkMax(20, MotorType.kBrushless);
      private final CANSparkMax mLift2 = new CANSparkMax(21, MotorType.kBrushless);
      private AbsoluteEncoder liftEncoder;
-     private double liftSet;
+     private double liftSet, launchPercentageSet;
      private PIDController liftPID;
      private SlewRateLimiter liftLimiter = new SlewRateLimiter(2);
      private ShooterPos shooterPos, previousShooterPose;
@@ -53,18 +54,16 @@ import frc.robot.util.TimeOutTimer;
      private TimeOutTimer TimeOut;
 
     // launch variables don't change
-     private final CANSparkMax mLaunch1 = new CANSparkMax(23, MotorType.kBrushless);
+     private final CANSparkMax mLaunch1 = new CANSparkMax(25, MotorType.kBrushless);
      private final CANSparkMax mLaunch2 = new CANSparkMax(24, MotorType.kBrushless);
      private double topLaunchSpeed, bottomLaunchSpeed;
      private SlewRateLimiter launchLimiter = new SlewRateLimiter(1.5);
      private SlewRateLimiter launchLimiter2 = new SlewRateLimiter(1.5);
 
     // feed variables also don't change
-     private final CANSparkMax mFeed1 = new CANSparkMax(25, MotorType.kBrushless);
+     private final CANSparkMax mFeed1 = new CANSparkMax(23, MotorType.kBrushless);
      private final CANSparkMax mFeed2 = new CANSparkMax(26, MotorType.kBrushless);
      private double feedSpeed;
-
-     private IntakeSubsystem intakeSubsystem; // Not actually adding the subsystem, only accessing methods! Without setting a subsystem, it will not be added to the scheduler. Added a method below to set the subsystem
 
      private boolean finished, poseChanged;
 
@@ -91,7 +90,10 @@ import frc.robot.util.TimeOutTimer;
          this.topLaunchSpeed = 0;
          this.bottomLaunchSpeed = 0;
          this.feedSpeed = 0;
+         this.launchPercentageSet = 0;
          //mLaunch2.setIdleMode(IdleMode.kBrake);
+
+        //  mLaunch1.restoreFactoryDefaults()
 
         SmartDashboard.putNumber("Distance from Speaker", 0.457);
         SmartDashboard.putNumber("Height to target", 2);
@@ -103,7 +105,9 @@ import frc.robot.util.TimeOutTimer;
      //default lift
          liftPID = new PIDController(0.025, 0, 0.0005);  
          liftEncoder = mLift2.getAbsoluteEncoder(Type.kDutyCycle);
-         this.liftSet =  getLiftPosition(); //This will get the lift position. Methods can be called from a constructor, no need to do > liftEncoder.getPosition() * 360
+        // this.liftSet =  getLiftPosition(); //This will get the lift position. Methods can be called from a constructor, no need to do > liftEncoder.getPosition() * 360
+        this.liftSet = LaunchConstants.LAUNCH_ANGLE;
+
 
          mLift1.follow(mLift2, true); //Keep in mind both will flash the same color for forward and reverse
 
@@ -135,14 +139,9 @@ import frc.robot.util.TimeOutTimer;
 
         LimelightHelpers.setPipelineIndex("", 2);
 
-     }
+        mLift1.setIdleMode(IdleMode.kCoast);
+        mLift2.setIdleMode(IdleMode.kCoast);
 
-    /**
-    * Sets the Intake Subsystem from the Robot Container
-    * @param intakeSubsystem IntakeSubsystem
-    */
-     public void setIntakeSubsystem(IntakeSubsystem intakeSubsystem) { // Once the subsystem is added to robot container, then we can set it here
-         this.intakeSubsystem = intakeSubsystem;
      }
 
      /**
@@ -222,6 +221,14 @@ import frc.robot.util.TimeOutTimer;
          return this.liftSet;
      }
 
+     public void launchPercentageSet(double launchPercentageSet){
+        this.launchPercentageSet = launchPercentageSet;
+     }
+
+     public double getlaunchPercentage(){
+        return this.launchPercentageSet;
+     }
+
      /**
       * Sets the Current Shooter Pose
       * @param SHOOTERPOS ShooterPos
@@ -263,6 +270,21 @@ import frc.robot.util.TimeOutTimer;
         return this.topLaunchSpeed;
      }
 
+
+     public void enableBreakMode(){
+        mLift1.setIdleMode(IdleMode.kBrake);
+        mLift2.setIdleMode(IdleMode.kBrake);
+     }
+
+     public void enableCostMode(){
+        mLift1.setIdleMode(IdleMode.kCoast);
+        mLift2.setIdleMode(IdleMode.kCoast);
+     }
+
+     public void disableBreakMode(){
+        
+     }
+ 
     
 
      /**
@@ -409,310 +431,7 @@ import frc.robot.util.TimeOutTimer;
      @Override
      public void periodic(){
 
-        /*
-            Place Sequences Here
-            Use Only Get and Set Methods for Motors
-        */
-
-
-        //Test if Shooter Pose Has Changed, Only for 1 Frame
-        if(getPreviousShooterPose() != getShooterPose()) {
-            setPreviousShooterPose(getShooterPose());
-            setPoseChanged(true);
-        } else {
-            setPoseChanged(false);
-        }
-
-
-        //If the pose has been changed then start the time out timer and decalre that it has started
-        if(poseChanged()) {
-            //Start Timer
-            TimeOut.zero();
-            TimeOut.start(); //Start the Timer
-            setFinished(false); //Broadcast that the launch mech is running a sequence
-        }
-
-        double liftAngle;
-        double launchSpeed;
-        double launchSpeed2;
-        double feedSpeed;
-
-        switch (getShooterPose()) {
-            case Store:
-                //Use this as a template :D
-
-                //Constants - In general, that way its easy to adjust later
-                liftAngle = 20;
-                launchSpeed = 0;
-                feedSpeed = 0;
-                //double intakeAngle = 40; // the current value is wrong //NO NEED FOR THIS ;)
-
-                //Expected Sequence
-                //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
-                //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
-
-                //Check if ready to run
-                if(!isFinished()) {
-                    //Timer Is In Seconds (Using Special TimeOutTimer Class to set time), This avoids having to wait until timer is finished
-                    if(TimeOut.get() < 2){ //TODO Times Maybe Wrong, Test Timeouts
-                        //(SQ:1)
-
-                        //Set Actuators
-                        setLaunchSpeed(launchSpeed);
-                        setFeedSpeed(feedSpeed);
-                        liftSet(liftAngle);
-
-                        //Our Desired End State
-                        if (!isRunning()) { //Use !isRunning(false) //(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1)
-                            TimeOut.setTime(2); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
-                        }
-                    } else if(TimeOut.get() < 4) { //TODO Times Maybe Wrong, Test Timeouts
-                        //(SQ:2)
-
-                        //Set Actuators
-                        /*intakeSubsystem.setIntakePose(IntakePos.Store); //Set Intake Pose
-
-                        //Our Desired End State
-                        if(!intakeSubsystem.isRunning() && intakeSubsystem.getIntakePose() == IntakePos.Store) { //Use getIntakePose //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
-                            TimeOut.setTime(4); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
-                        }*/
-                    }
-                }
-
-                //Finish
-                if(TimeOut.get() > 6) { //TODO Times Maybe Wrong, Test Timeouts
-                    //Cleanup and report
-                    setFinished(true); //Broadcast that the launch mech is not running a sequence
-                    TimeOut.stop(); //Stop because it doesn't need to run anymore
-                }
-
-                //Changed to add TimeOuts - Just in case the posistion is never reached fully
-                /*  if(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1) {
-                    //(SQ:1)
-                    setLaunchSpeed(0);
-                    setFeedSpeed(0);
-                    liftSet(liftAngle);
-                } else if(intakeSubsystem.getIntakePose() != IntakePos.Store) { //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
-                    //(SQ:2)
-                    intakeSubsystem.setIntakePose(IntakePos.Store);
-                } */
-                
-                break;
-
-            case Amp:
-                 /* liftAngle = 30; // TODO the current value is wrong
-                 double shooterVel = 0.4; // TODO the current value is wrong
-                 double FeedSpeed = 0.5; // TODO the current value is wrong */
-
-                  //intakeSubsystem.setIntakePose(IntakePos.Amp);
-                 //liftSet(liftAngle); 
-                 
-
-                /* if(intakeSubsystem.getIntakePose() != IntakePos.Amp) {
-                    intakeSubsystem.setIntakePose(IntakePos.Amp);
-                } else if(!intakeSubsystem.isRunning() && getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1){
-                    liftSet(liftAngle);
-
-                } else if(getLaunchSpeed() < shooterVel || TimeOut.get() < 60){
-                    if(TimeOut.get() == 0){
-                        TimeOut.start();
-                    }
-                    setLaunchSpeed(shooterVel);
-
-                } else if(feedTimer.get() < 3){ // <-- time it takes to feed
-                    if(feedTimer.get() == 0){
-                        feedTimer.start();
-                    }
-                    setFeedSpeed(FeedSpeed);
-                } else {
-                    feedTimer.stop();
-                    feedTimer.reset();
-                    TimeOut.stop();
-                    TimeOut.reset();
-                    setShooterPose(ShooterPos.Store);
-                } */
-
-                liftAngle = 95;
-                launchSpeed = 0.2;
-                feedSpeed = 0.2;
-                //Expected Sequence
-                //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
-                //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
-
-                //Check if ready to run
-                //Timer Is In Seconds (Using Special TimeOutTimer Class to set time), This avoids having to wait until timer is finished
-                    
-                liftSet(liftAngle);
-
-                //Finish
-                if(true /* TimeOut.get() > 10 */) { //TODO Times Maybe Wrong, Test Timeouts
-                    //Cleanup and report
-                    setFinished(true); //Broadcast that the launch mech is not running a sequence
-                    TimeOut.stop(); //Stop because it doesn't need to run anymore
-                }
-
-               break;
-            case Speaker:
-
-                liftAngle = 40; //40
-                launchSpeed = 0.7; //1
-                launchSpeed2 = 0.3;
-                feedSpeed = 1;
-                //Expected Sequence
-                //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
-                //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
-
-                //Check if ready to run
-                //Timer Is In Seconds (Using Special TimeOutTimer Class to set time), This avoids having to wait until timer is finished
-                    if(TimeOut.get() < 1){ //TODO Times Maybe Wrong, Test Timeouts
-                        //(SQ:1)
-
-                        //Set Actuators
-                        liftSet(liftAngle);
-                        //intakeSubsystem.setIntakePose(IntakePos.Speaker); //Set Intake Pose
-                        setLaunchSpeed(launchSpeed);
-
-                        /* //Our Desired End State
-                        if (!isRunning() && (!intakeSubsystem.isRunning() && intakeSubsystem.getIntakePose() == IntakePos.Amp)) { //Use !isRunning(false) //(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1)
-                            TimeOut.setTime(2); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
-                        } */
-                    } else if(TimeOut.get() < 3.5) { //TODO Times Maybe Wrong, Test Timeouts
-                        //(SQ:2)
-
-                        setFeedSpeed(feedSpeed);
-
-                        //Our Desired End State
-                        /* if(mLaunch1.getEncoder().getVelocity() > 500) { //Use getIntakePose //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
-                            TimeOut.setTime(6); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
-                        } */
-                    }
-
-                //Finish
-                if(TimeOut.get() > 10) { //TODO Times Maybe Wrong, Test Timeouts
-                    //Cleanup and report
-                    setFinished(true); //Broadcast that the launch mech is not running a sequence
-                    TimeOut.stop(); //Stop because it doesn't need to run anymore
-                }
-
-               break;
-            case AlignWithLimelight:
-
-                // DISTANCE_FROM_SPEAKER = SmartDashboard.getNumber("Distance from Speaker", 0.457);
-                // HEIGHT_TO_TARGET = SmartDashboard.getNumber("Height to target", 2);
-                double l1 = SmartDashboard.getNumber("Top Launch Speed", 0.4);
-                double l2 = SmartDashboard.getNumber("B", 0.3);
-                double angle = SmartDashboard.getNumber("angle", 44);
-                feedSpeed = SmartDashboard.getNumber("Feed Speed" , 1);
-                
-                if( LimelightHelpers.getTV("")){
-                    DISTANCE_TO_APRILTAG = filter.calculate(Math.abs(LimelightHelpers.getCameraPose3d_TargetSpace("").getZ()));
-                    lastXValue = DISTANCE_TO_APRILTAG;
-                } else {
-                    DISTANCE_TO_APRILTAG = lastXValue;
-                    filter.reset();
-                }
-
-                // theoreticalDegree = Math.toDegrees(
-                //     Math.atan( 
-                //         HEIGHT_TO_TARGET / (LENGTH_FROM_LIMELIGHT_TO_SHOOTER_AXIS - DISTANCE_FROM_SPEAKER + DISTANCE_TO_APRILTAG)
-                //     )
-                // );
-
-                // 1 point
-                //  degree = 47, topspeed = 0.8, bottomspeed = 0.6
-
-
-
-                theoreticalDegree = angle;
-                
-                // offset originally 20
-                liftAngle = MathUtil.clamp(theoreticalDegree - 16, 0, 75);
-                liftSet(liftAngle);
-
-                // Added by julio Timing and feeder
-                 if(TimeOut.get() < 1){
-                    setTopLaunchSpeed(l1);
-                    setBottomLaunchSpeed(l2);
-
-                 } else /*if(TimeOut.get() < 3.5)*/ {
-                    setFeedSpeed(feedSpeed);
-                 }
-                 
-                // if(TimeOut.get() > 10) {
-                //     setFinished(true); 
-                //     TimeOut.stop(); 
-                // }
-                
-                SmartDashboard.putNumber("Distance from AprilTag (m)", DISTANCE_TO_APRILTAG);
-                SmartDashboard.putNumber("Theoretical degree", theoreticalDegree);
-                SmartDashboard.putNumber("Lift Angle", liftAngle);
-
-                break;
-            default:
-                break;
-
-                case Climb:
-
-                //Constants - In general, that way its easy to adjust later
-                liftAngle = 3;
-                launchSpeed = 0;
-                feedSpeed = 0;
-                //double intakeAngle = 40; // the current value is wrong //NO NEED FOR THIS ;)
-
-                //Expected Sequence
-                //SQ:1: Set Launch and Feed Motor to Zero, Lift Note Launcher To Set Angle | Do this until angle is satifactory
-                //SQ:2: Trigger Intake to Storeage Pose | Do this if the intake isn't running
-
-                //Check if ready to run
-                if(!isFinished()) {
-                    //Timer Is In Seconds (Using Special TimeOutTimer Class to set time), This avoids having to wait until timer is finished
-                    if(TimeOut.get() < 2){ //TODO Times Maybe Wrong, Test Timeouts
-                        //(SQ:1)
-
-                        //Set Actuators
-                        setLaunchSpeed(launchSpeed);
-                        setFeedSpeed(feedSpeed);
-                        liftSet(liftAngle);
-
-                        //Our Desired End State
-                        if (!isRunning()) { //Use !isRunning(false) //(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1)
-                            TimeOut.setTime(2); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
-                        }
-                    } else if(TimeOut.get() < 4) { //TODO Times Maybe Wrong, Test Timeouts
-                        //(SQ:2)
-
-                        //Set Actuators
-                        //intakeSubsystem.setIntakePose(IntakePos.Store); //Set Intake Pose
-
-                        //Our Desired End State
-                        /*if(!intakeSubsystem.isRunning() && intakeSubsystem.getIntakePose() == IntakePos.Store) { //Use getIntakePose //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
-                            TimeOut.setTime(4); //Advance the Timer //TODO Times Maybe Wrong, Test Timeouts
-                        }*/
-                    }
-                }
-
-                //Finish
-                if(TimeOut.get() > 6) { //TODO Times Maybe Wrong, Test Timeouts
-                    //Cleanup and report
-                    setFinished(true); //Broadcast that the launch mech is not running a sequence
-                    TimeOut.stop(); //Stop because it doesn't need to run anymore
-                }
-
-                //Changed to add TimeOuts - Just in case the posistion is never reached fully
-                /*  if(getLiftPosition() < liftAngle + 1 && getLiftPosition() > liftAngle - 1) {
-                    //(SQ:1)
-                    setLaunchSpeed(0);
-                    setFeedSpeed(0);
-                    liftSet(liftAngle);
-                } else if(intakeSubsystem.getIntakePose() != IntakePos.Store) { //intakeSubsystem.getDeploySet() < intakeAngle + 1 && intakeSubsystem.getDeploySet() > intakeAngle - 1
-                    //(SQ:2)
-                    intakeSubsystem.setIntakePose(IntakePos.Store);
-                } */
-                
-                break;
-    
-        }
-
+       
         //Then Run Motors
         runMotors();
         dashboard();
@@ -731,16 +450,46 @@ import frc.robot.util.TimeOutTimer;
             liftValue = 0.1;
          }
 
-        mLift2.set(liftValue);
+         
+         mLift2.set(liftValue);
 
         // 5676 Max RPM of Neo Max
         double topLaunchRPM = getTopLaunchSpeed() * 5676;
         double bottomLaunchRPM = getBottomLaunchSpeed() * 5676;
 
-        topLaunchPID.setReference(topLaunchRPM, CANSparkMax.ControlType.kVelocity);
-        bottomLaunchPID.setReference(bottomLaunchRPM, CANSparkMax.ControlType.kVelocity);
+        double launchPercentage = getlaunchPercentage();
+
+        double topLaunchValue = 0;
+        double bottomLaunchValue = 0;
+
+        if( launchPercentage == 0){
+        if( topLaunchRPM == 0){
+            topLaunchValue = 0;
+            mLaunch1.set(topLaunchValue);
+        } else {
+            bottomLaunchPID.setReference(bottomLaunchRPM, CANSparkMax.ControlType.kVelocity);
+        }
+        if( topLaunchRPM == 0){
+            bottomLaunchValue = 0;
+            mLaunch1.set(topLaunchValue);
+            mLaunch2.set(bottomLaunchValue);
+        } else {
+            topLaunchPID.setReference(topLaunchRPM, CANSparkMax.ControlType.kVelocity);
+        }
+        } else {
+            topLaunchValue = launchPercentage;
+            bottomLaunchValue = launchPercentage;
+            mLaunch1.set(topLaunchValue);
+            mLaunch2.set(bottomLaunchValue);
+        }
+
+        
+        /* mLaunch1.set(topLaunchValue);
+        mLaunch2.set(bottomLaunchValue); */
+
         SmartDashboard.putNumber("Actual Top Speed", mLaunch1.getEncoder().getVelocity()); 
         SmartDashboard.putNumber("Actual Bottom Speed", mLaunch2.getEncoder().getVelocity());
+
 
         mFeed1.set(getFeedSpeed());
         mFeed2.set(getFeedSpeed());

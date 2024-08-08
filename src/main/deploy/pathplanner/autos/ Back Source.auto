@@ -1,0 +1,25 @@
+{
+  "version": 1.0,
+  "startingPose": {
+    "position": {
+      "x": 0.9303474162503883,
+      "y": 4.375440973104168
+    },
+    "rotation": 3.094058058917129
+  },
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Backup Source Side"
+          }
+        }
+      ]
+    }
+  },
+  "folder": "State Autos",
+  "choreoAuto": false
+}
